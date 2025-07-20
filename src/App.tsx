@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import './App.css';
 import AdminPanel from './AdminPanel';
-import Portfolio from './Portfolio';
+import EnhancedAdminPanel from './EnhancedAdminPanel';
+import DynamicPortfolio from './DynamicPortfolio';
 import MaintenancePage from './MaintenancePage';
 import { maintenanceAPI } from './api';
 
@@ -214,7 +215,7 @@ const App = () => {
   };
 
   // If maintenance is active and it's not an admin route, show maintenance page
-  if (isMaintenanceActive() && !window.location.pathname.includes('/web-admin')) {
+  if (isMaintenanceActive() && !window.location.pathname.includes('/web-admin') && !window.location.pathname.includes('/admin')) {
     return (
       <MaintenancePage 
         maintenanceMode={maintenanceMode}
@@ -226,16 +227,10 @@ const App = () => {
   return (
     <Routes>
       <Route path="/" element={
-        <Portfolio 
-          aboutContent={aboutContent}
-          homePageContent={homePageContent}
+        <DynamicPortfolio 
           theme={theme}
-          toggleTheme={toggleTheme}
           activeSection={activeSection}
-          scrollToSection={scrollToSection}
-          isMobileMenuOpen={isMobileMenuOpen}
-          setIsMobileMenuOpen={setIsMobileMenuOpen}
-          toggleMobileMenu={toggleMobileMenu}
+          setActiveSection={setActiveSection}
         />
       } />
       <Route path="/web-admin" element={
@@ -244,6 +239,12 @@ const App = () => {
           setAboutContent={setAboutContent}
           homePageContent={homePageContent}
           setHomePageContent={setHomePageContent}
+          maintenanceMode={maintenanceMode}
+          setMaintenanceMode={setMaintenanceMode}
+        />
+      } />
+      <Route path="/admin" element={
+        <EnhancedAdminPanel 
           maintenanceMode={maintenanceMode}
           setMaintenanceMode={setMaintenanceMode}
         />
