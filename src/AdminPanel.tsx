@@ -4,7 +4,7 @@ import {
   MdWork, MdArticle, MdCode, MdEmail, MdSettings, MdPeople,
   MdLock, MdDelete as MdTrash, MdCheck, MdClose, MdKey,
   MdRocket, MdPsychology, MdCloud, MdSecurity, MdDevices,
-  MdComputer, MdTerminal, MdBuild
+  MdComputer, MdTerminal, MdBuild, MdMenu
 } from 'react-icons/md';
 import { 
   FaAws, FaReact, FaPython, FaDocker, FaLinux, FaGithub,
@@ -128,6 +128,24 @@ const AdminPanel = ({ aboutContent, setAboutContent, homePageContent, setHomePag
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [currentPassword, setCurrentPassword] = useState('');
+
+  // Mobile responsiveness states
+  const [isMobile, setIsMobile] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Check for mobile screen size
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768);
+      if (window.innerWidth > 768) {
+        setSidebarOpen(false);
+      }
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Load initial data (in a real app, this would come from an API)
   useEffect(() => {
@@ -559,25 +577,75 @@ const AdminPanel = ({ aboutContent, setAboutContent, homePageContent, setHomePag
       background: 'var(--bg-primary)',
       zIndex: 10000,
       display: 'flex',
-      overflow: 'hidden'
+      overflow: 'hidden',
+      flexDirection: isMobile ? 'column' : 'row'
     }}>
+      {/* Mobile Header */}
+      {isMobile && (
+        <div style={{
+          background: 'var(--bg-secondary)',
+          borderBottom: '1px solid var(--border)',
+          padding: '1rem',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          position: 'sticky',
+          top: 0,
+          zIndex: 10
+        }}>
+          <h2 style={{ color: 'var(--text-primary)', margin: 0, fontSize: '1.2rem' }}>
+            Admin Panel
+          </h2>
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            style={{
+              background: 'var(--accent)',
+              border: 'none',
+              borderRadius: '8px',
+              padding: '8px',
+              color: 'white',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            <MdMenu size={20} />
+          </button>
+        </div>
+      )}
+
       {/* Sidebar */}
       <div className="admin-sidebar" style={{
-        width: '250px',
+        width: isMobile ? '100%' : '250px',
+        height: isMobile ? (sidebarOpen ? 'auto' : '0') : 'auto',
+        maxHeight: isMobile ? (sidebarOpen ? '300px' : '0') : 'none',
+        overflow: isMobile ? 'hidden' : 'visible',
         background: 'var(--bg-secondary)',
-        borderRight: '1px solid var(--border)',
-        padding: '2rem 0',
+        borderRight: isMobile ? 'none' : '1px solid var(--border)',
+        borderBottom: isMobile ? '1px solid var(--border)' : 'none',
+        padding: isMobile ? (sidebarOpen ? '1rem 0' : '0') : '2rem 0',
         display: 'flex',
-        flexDirection: 'column'
+        flexDirection: 'column',
+        transition: isMobile ? 'all 0.3s ease' : 'none',
+        position: isMobile ? 'relative' : 'static',
+        zIndex: isMobile ? 9 : 'auto'
       }}>
-        <div style={{ padding: '0 2rem', marginBottom: '2rem' }}>
-          <h2 style={{ color: 'var(--text-primary)', margin: 0 }}>Admin Panel</h2>
-          <p style={{ color: 'var(--text-secondary)', margin: '0.5rem 0 0 0', fontSize: '0.875rem' }}>
-            Welcome, {currentUser?.username} ({currentUser?.role})
-          </p>
-        </div>
+        {!isMobile && (
+          <div style={{ padding: '0 2rem', marginBottom: '2rem' }}>
+            <h2 style={{ color: 'var(--text-primary)', margin: 0 }}>Admin Panel</h2>
+            <p style={{ color: 'var(--text-secondary)', margin: '0.5rem 0 0 0', fontSize: '0.875rem' }}>
+              Welcome, {currentUser?.username} ({currentUser?.role})
+            </p>
+          </div>
+        )}
 
-        <nav style={{ flex: 1 }}>
+        <nav style={{ 
+          flex: 1,
+          display: isMobile ? (sidebarOpen ? 'block' : 'none') : 'block',
+          maxHeight: isMobile ? '250px' : 'none',
+          overflowY: isMobile ? 'auto' : 'visible'
+        }}>
           {[
             { id: 'dashboard', label: 'Dashboard', icon: <MdDashboard size={18} /> },
             { id: 'homepage', label: 'Home Page', icon: <MdRocket size={18} /> },
@@ -593,10 +661,15 @@ const AdminPanel = ({ aboutContent, setAboutContent, homePageContent, setHomePag
           ].map(tab => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => {
+                setActiveTab(tab.id);
+                if (isMobile) {
+                  setSidebarOpen(false);
+                }
+              }}
               style={{
                 width: '100%',
-                padding: '1rem 2rem',
+                padding: isMobile ? '0.75rem 1rem' : '1rem 2rem',
                 border: 'none',
                 background: activeTab === tab.id ? 'var(--accent)' : 'transparent',
                 color: activeTab === tab.id ? 'white' : 'var(--text-primary)',
@@ -604,7 +677,11 @@ const AdminPanel = ({ aboutContent, setAboutContent, homePageContent, setHomePag
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '0.75rem'
+                gap: '0.75rem',
+                fontSize: isMobile ? '0.9rem' : '1rem',
+                borderRadius: isMobile ? '8px' : '0',
+                margin: isMobile ? '0.25rem 0.5rem' : '0',
+                transition: 'all 0.2s ease'
               }}
             >
               {tab.icon}
@@ -634,39 +711,63 @@ const AdminPanel = ({ aboutContent, setAboutContent, homePageContent, setHomePag
       {/* Main Content */}
       <div className="admin-content" style={{
         flex: 1,
-        padding: '2rem',
-        overflow: 'auto'
+        padding: isMobile ? '1rem' : '2rem',
+        overflow: 'auto',
+        height: isMobile ? 'calc(100vh - 60px)' : 'auto'
       }}>
+        {/* Mobile overlay */}
+        {isMobile && sidebarOpen && (
+          <div
+            onClick={() => setSidebarOpen(false)}
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: 'rgba(0, 0, 0, 0.5)',
+              zIndex: 8
+            }}
+          />
+        )}
+        
         {activeTab === 'dashboard' && (
           <div>
-            <h2 style={{ color: 'var(--text-primary)', marginBottom: '2rem' }}>Dashboard</h2>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+            <h2 style={{ color: 'var(--text-primary)', marginBottom: '2rem', fontSize: isMobile ? '1.3rem' : '1.5rem' }}>Dashboard</h2>
+            <div style={{ 
+              display: 'grid', 
+              gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(200px, 1fr))', 
+              gap: isMobile ? '0.75rem' : '1rem' 
+            }}>
               <div className="stat-card" style={{
                 background: 'var(--bg-secondary)',
-                padding: '1.5rem',
+                padding: isMobile ? '1rem' : '1.5rem',
                 borderRadius: '0.75rem',
-                border: '1px solid var(--border)'
+                border: '1px solid var(--border)',
+                textAlign: 'center'
               }}>
-                <h3 style={{ color: 'var(--text-primary)' }}>{projects.length}</h3>
-                <p style={{ color: 'var(--text-secondary)', margin: 0 }}>Total Projects</p>
+                <h3 style={{ color: 'var(--text-primary)', fontSize: isMobile ? '1.5rem' : '2rem', margin: '0 0 0.5rem 0' }}>{projects.length}</h3>
+                <p style={{ color: 'var(--text-secondary)', margin: 0, fontSize: isMobile ? '0.85rem' : '1rem' }}>Total Projects</p>
               </div>
               <div className="stat-card" style={{
                 background: 'var(--bg-secondary)',
-                padding: '1.5rem',
+                padding: isMobile ? '1rem' : '1.5rem',
                 borderRadius: '0.75rem',
-                border: '1px solid var(--border)'
+                border: '1px solid var(--border)',
+                textAlign: 'center'
               }}>
-                <h3 style={{ color: 'var(--text-primary)' }}>{blogPosts.length}</h3>
-                <p style={{ color: 'var(--text-secondary)', margin: 0 }}>Blog Posts</p>
+                <h3 style={{ color: 'var(--text-primary)', fontSize: isMobile ? '1.5rem' : '2rem', margin: '0 0 0.5rem 0' }}>{blogPosts.length}</h3>
+                <p style={{ color: 'var(--text-secondary)', margin: 0, fontSize: isMobile ? '0.85rem' : '1rem' }}>Blog Posts</p>
               </div>
               <div className="stat-card" style={{
                 background: 'var(--bg-secondary)',
-                padding: '1.5rem',
+                padding: isMobile ? '1rem' : '1.5rem',
                 borderRadius: '0.75rem',
-                border: '1px solid var(--border)'
+                border: '1px solid var(--border)',
+                textAlign: 'center'
               }}>
-                <h3 style={{ color: 'var(--text-primary)' }}>{skills.length}</h3>
-                <p style={{ color: 'var(--text-secondary)', margin: 0 }}>Skills</p>
+                <h3 style={{ color: 'var(--text-primary)', fontSize: isMobile ? '1.5rem' : '2rem', margin: '0 0 0.5rem 0' }}>{skills.length}</h3>
+                <p style={{ color: 'var(--text-secondary)', margin: 0, fontSize: isMobile ? '0.85rem' : '1rem' }}>Skills</p>
               </div>
             </div>
           </div>

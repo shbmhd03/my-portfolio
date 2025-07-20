@@ -4514,164 +4514,103 @@ select {
     max-width: none;
   }
   
-  .admin-panel-header {
-    padding: 20px;
-    position: sticky;
-    top: 0;
-    z-index: 10;
-  }
-  
-  .admin-panel-header h2 {
-    font-size: 1.4rem;
-  }
-  
-  .admin-panel-close {
-    width: 35px;
-    height: 35px;
-  }
-  
-  .admin-panel-content {
-    flex-direction: column;
-    height: calc(100vh - 80px);
+  /* Admin Panel Mobile Layout */
+  .admin-panel {
+    flex-direction: column !important;
   }
   
   .admin-sidebar {
-    width: 100%;
-    max-height: none;
-    height: auto;
-    border-right: none;
-    border-bottom: 1px solid var(--glass-border);
-    background: rgba(255, 255, 255, 0.08);
-  }
-  
-  .admin-sidebar ul {
-    display: flex;
-    overflow-x: auto;
-    padding: 0 10px;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-  }
-  
-  .admin-sidebar ul::-webkit-scrollbar {
-    display: none;
-  }
-  
-  .admin-sidebar li {
-    border-bottom: none;
-    border-right: 1px solid rgba(255, 255, 255, 0.1);
-    min-width: 120px;
-    flex-shrink: 0;
-  }
-  
-  .admin-sidebar li:last-child {
-    border-right: none;
-  }
-  
-  .admin-sidebar button {
-    padding: 15px 20px;
-    font-size: 0.85rem;
-    text-align: center;
-    justify-content: center;
-    min-height: 60px;
-    white-space: nowrap;
-  }
-  
-  .admin-main {
-    flex: 1;
-    padding: 20px;
+    width: 100% !important;
+    border-right: none !important;
+    border-bottom: 1px solid var(--border) !important;
+    padding: 0 !important;
+    max-height: 300px;
     overflow-y: auto;
-    height: auto;
   }
   
-  .admin-section h3 {
-    font-size: 1.2rem;
-    margin-bottom: 20px;
+  .admin-content {
+    padding: 1rem !important;
+    height: calc(100vh - 60px) !important;
   }
   
-  .admin-stats {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 15px;
-    margin-bottom: 25px;
-  }
-  
-  .admin-stat-card {
-    padding: 20px;
-  }
-  
-  .admin-stat-card h3 {
-    font-size: 1.5rem;
-  }
-  
-  .admin-actions {
-    flex-wrap: wrap;
-    gap: 10px;
-    margin-bottom: 20px;
-  }
-  
-  .admin-btn {
-    padding: 10px 16px;
-    font-size: 0.85rem;
-    flex: 1;
-    min-width: 120px;
-    justify-content: center;
-  }
-  
+  /* Mobile Forms */
   .admin-form {
-    padding: 20px;
-    margin-bottom: 20px;
+    padding: 1rem !important;
+    margin-bottom: 1rem !important;
   }
   
-  .admin-form-group {
-    margin-bottom: 15px;
+  .admin-form input,
+  .admin-form textarea,
+  .admin-form select {
+    padding: 0.75rem !important;
+    font-size: 16px !important; /* Prevent zoom on iOS */
   }
   
-  .admin-form-group label {
-    font-size: 0.85rem;
-    margin-bottom: 5px;
+  .admin-form textarea {
+    min-height: 100px !important;
   }
   
-  .admin-form-group input,
-  .admin-form-group textarea,
-  .admin-form-group select {
-    padding: 10px 12px;
-    font-size: 0.9rem;
+  /* Mobile Buttons */
+  .admin-btn {
+    padding: 0.75rem 1rem !important;
+    font-size: 0.9rem !important;
+    min-height: 44px !important;
+    width: 100% !important;
+    margin-bottom: 0.5rem !important;
   }
   
-  .admin-form-group textarea {
-    min-height: 80px;
+  /* Mobile Actions */
+  .admin-actions {
+    flex-direction: column !important;
+    gap: 0.5rem !important;
   }
   
-  .admin-form-actions {
-    flex-direction: column;
-    gap: 10px;
+  /* Mobile Stats */
+  .admin-stats,
+  .stat-card {
+    grid-template-columns: 1fr !important;
+    gap: 0.75rem !important;
   }
   
-  .admin-form-actions .admin-btn {
-    width: 100%;
+  .stat-card {
+    padding: 1rem !important;
+    text-align: center !important;
   }
   
+  /* Mobile Items */
   .admin-item {
-    padding: 20px;
-    margin-bottom: 15px;
-  }
-  
-  .admin-item h4 {
-    font-size: 1rem;
-  }
-  
-  .admin-item p {
-    font-size: 0.85rem;
+    padding: 1rem !important;
+    margin-bottom: 0.75rem !important;
   }
   
   .admin-item-actions {
-    flex-direction: column;
-    gap: 8px;
+    flex-direction: column !important;
+    gap: 0.5rem !important;
   }
   
   .admin-item-actions .admin-btn {
-    width: 100%;
-    padding: 8px 12px;
-    font-size: 0.8rem;
+    width: 100% !important;
+    margin-bottom: 0.25rem !important;
+  }
+  
+  /* Auth Modal Mobile */
+  .auth-modal {
+    padding: 1rem !important;
+  }
+  
+  .auth-form {
+    padding: 1.5rem !important;
+    max-width: none !important;
+    width: 100% !important;
+  }
+  
+  .auth-form input {
+    padding: 0.75rem !important;
+    font-size: 16px !important;
+  }
+  
+  .auth-form h3 {
+    font-size: 1.3rem !important;
   }
 }
 
