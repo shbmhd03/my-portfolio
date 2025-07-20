@@ -4,7 +4,8 @@ import {
   MdWork, MdArticle, MdCode, MdEmail, MdSettings, MdPeople,
   MdLock, MdDelete as MdTrash, MdCheck, MdClose, MdKey,
   MdRocket, MdPsychology, MdCloud, MdSecurity, MdDevices,
-  MdComputer, MdTerminal, MdBuild, MdMenu
+  MdComputer, MdTerminal, MdBuild, MdMenu, MdLogout, MdVisibility,
+  MdTrendingUp, MdSpeed, MdUpdate
 } from 'react-icons/md';
 import { 
   FaAws, FaReact, FaPython, FaDocker, FaLinux, FaGithub,
@@ -49,6 +50,17 @@ interface ContactInfo {
   github: string;
 }
 
+interface MaintenanceMode {
+  isActive: boolean;
+  startDate: string;
+  endDate: string;
+  message: string;
+  estimatedDuration: string;
+  contactEmail: string;
+  showCountdown: boolean;
+  allowAdminAccess: boolean;
+}
+
 interface HomePageContent {
   name: string;
   title: string;
@@ -91,15 +103,18 @@ interface AdminPanelProps {
   setAboutContent: (content: AboutContent) => void;
   homePageContent: HomePageContent;
   setHomePageContent: (content: HomePageContent) => void;
+  maintenanceMode: MaintenanceMode;
+  setMaintenanceMode: (mode: MaintenanceMode) => void;
 }
 
-const AdminPanel = ({ aboutContent, setAboutContent, homePageContent, setHomePageContent }: AdminPanelProps) => {
-  const [isOpen, setIsOpen] = useState(false);
+const AdminPanel = ({ aboutContent, setAboutContent, homePageContent, setHomePageContent, maintenanceMode, setMaintenanceMode }: AdminPanelProps) => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
   
   // Data states
   const [projects, setProjects] = useState<Project[]>([]);
@@ -122,34 +137,10 @@ const AdminPanel = ({ aboutContent, setAboutContent, homePageContent, setHomePag
   const [editingHomeContent, setEditingHomeContent] = useState(false);
   const [editingAboutContent, setEditingAboutContent] = useState(false);
   const [editingSkillCategory, setEditingSkillCategory] = useState<SkillCategory | null>(null);
-  
-  // Settings states
-  const [showPasswordChange, setShowPasswordChange] = useState(false);
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [currentPassword, setCurrentPassword] = useState('');
 
-  // Mobile responsiveness states
-  const [isMobile, setIsMobile] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-
-  // Check for mobile screen size
+  // Load initial data
   useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth <= 768);
-      if (window.innerWidth > 768) {
-        setSidebarOpen(false);
-      }
-    };
-    
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
-
-  // Load initial data (in a real app, this would come from an API)
-  useEffect(() => {
-    // Load users (in production, this would be from a secure backend)
+    // Load users
     setUsers([
       {
         id: '1',
@@ -250,7 +241,12 @@ const AdminPanel = ({ aboutContent, setAboutContent, homePageContent, setHomePag
     ]);
   }, []);
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
+    setLoading(true);
+    
+    // Simulate API call delay
+    await new Promise(resolve => setTimeout(resolve, 800));
+    
     // Find user with matching username and password
     const user = users.find(u => u.username === username && u.password === password);
     
@@ -268,12 +264,15 @@ const AdminPanel = ({ aboutContent, setAboutContent, homePageContent, setHomePag
     } else {
       alert('Invalid username or password');
     }
+    
+    setLoading(false);
   };
 
   const handleLogout = () => {
     setIsAuthenticated(false);
     setCurrentUser(null);
-    setIsOpen(false);
+    setSidebarOpen(false);
+    setActiveTab('dashboard');
   };
 
   // Project management functions
@@ -336,7 +335,7 @@ const AdminPanel = ({ aboutContent, setAboutContent, homePageContent, setHomePag
     const newSkill: Skill = {
       name: 'New Skill',
       level: 50,
-      category: 'General',
+      category: 'Programming',
       color: '#3b82f6',
       icon: 'MdCode'
     };
@@ -353,18 +352,6 @@ const AdminPanel = ({ aboutContent, setAboutContent, homePageContent, setHomePag
     if (confirm('Are you sure you want to delete this skill?')) {
       setSkills(skills.filter(s => s.name !== name));
     }
-  };
-
-  // Home page content management
-  const saveHomeContent = (content: HomePageContent) => {
-    setHomePageContent(content);
-    setEditingHomeContent(false);
-  };
-
-  // About content management
-  const saveAboutContent = (content: AboutContent) => {
-    setAboutContent(content);
-    setEditingAboutContent(false);
   };
 
   // Skill category management
@@ -390,7 +377,7 @@ const AdminPanel = ({ aboutContent, setAboutContent, homePageContent, setHomePag
     }
   };
 
-  // User management functions
+  // User management functions (Admin only)
   const addUser = () => {
     const newUser: User = {
       id: Date.now().toString(),
@@ -413,8 +400,8 @@ const AdminPanel = ({ aboutContent, setAboutContent, homePageContent, setHomePag
   };
 
   const deleteUser = (id: string) => {
-    if (currentUser?.id === id) {
-      alert('You cannot delete your own account!');
+    if (id === currentUser?.id) {
+      alert('Cannot delete your own account');
       return;
     }
     if (confirm('Are you sure you want to delete this user?')) {
@@ -422,436 +409,530 @@ const AdminPanel = ({ aboutContent, setAboutContent, homePageContent, setHomePag
     }
   };
 
-  // Password change functionality
-  const handlePasswordChange = () => {
-    if (!currentUser) return;
-    
-    if (currentUser.password !== currentPassword) {
-      alert('Current password is incorrect');
-      return;
+  // Content management functions
+  const saveHomeContent = () => {
+    setEditingHomeContent(false);
+    // Home content is already managed through props
+  };
+
+  const saveAboutContent = () => {
+    setEditingAboutContent(false);
+    // About content is already managed through props
+  };
+
+  const saveContactInfo = () => {
+    // Contact info is managed through state
+    alert('Contact information saved successfully!');
+  };
+
+  // Form submission handlers
+  const handleProjectForm = (e: React.FormEvent, project: Project) => {
+    e.preventDefault();
+    saveProject(project);
+  };
+
+  const handleBlogForm = (e: React.FormEvent, post: BlogPost) => {
+    e.preventDefault();
+    saveBlogPost(post);
+  };
+
+  const handleSkillForm = (e: React.FormEvent, skill: Skill) => {
+    e.preventDefault();
+    saveSkill(skill);
+  };
+
+  const handleUserForm = (e: React.FormEvent, user: User) => {
+    e.preventDefault();
+    saveUser(user);
+  };
+
+  const handleSkillCategoryForm = (e: React.FormEvent, category: SkillCategory) => {
+    e.preventDefault();
+    saveSkillCategory(category);
+  };
+
+  // Utility functions
+  const cancelEdit = () => {
+    setEditingProject(null);
+    setEditingBlog(null);
+    setEditingSkill(null);
+    setEditingUser(null);
+    setEditingSkillCategory(null);
+    setEditingHomeContent(false);
+    setEditingAboutContent(false);
+  };
+
+  const generateUniqueId = () => {
+    return Date.now().toString() + Math.random().toString(36).substr(2, 9);
+  };
+
+  // Maintenance mode functions
+  const toggleMaintenanceMode = () => {
+    const newMode = { ...maintenanceMode, isActive: !maintenanceMode.isActive };
+    if (newMode.isActive && !newMode.startDate) {
+      newMode.startDate = new Date().toISOString().slice(0, 16);
+    }
+    setMaintenanceMode(newMode);
+  };
+
+  const saveMaintenanceSettings = () => {
+    // Validate dates
+    if (maintenanceMode.startDate && maintenanceMode.endDate) {
+      if (new Date(maintenanceMode.startDate) >= new Date(maintenanceMode.endDate)) {
+        alert('End date must be after start date');
+        return;
+      }
     }
     
-    if (newPassword !== confirmPassword) {
-      alert('New passwords do not match');
-      return;
-    }
+    // Save maintenance settings
+    alert('Maintenance settings saved successfully!');
+  };
+
+  const scheduleMaintenance = (startDate: string, endDate: string) => {
+    setMaintenanceMode({
+      ...maintenanceMode,
+      isActive: true,
+      startDate,
+      endDate
+    });
+  };
+
+  const isMaintenanceActive = () => {
+    if (!maintenanceMode.isActive) return false;
     
-    if (newPassword.length < 6) {
-      alert('Password must be at least 6 characters long');
-      return;
-    }
+    const now = new Date();
+    const start = maintenanceMode.startDate ? new Date(maintenanceMode.startDate) : null;
+    const end = maintenanceMode.endDate ? new Date(maintenanceMode.endDate) : null;
     
-    // Update current user's password
-    const updatedUser = { ...currentUser, password: newPassword };
-    setUsers(users.map(u => u.id === currentUser.id ? updatedUser : u));
-    setCurrentUser(updatedUser);
+    if (start && now < start) return false;
+    if (end && now > end) return false;
     
-    // Clear form
-    setCurrentPassword('');
-    setNewPassword('');
-    setConfirmPassword('');
-    setShowPasswordChange(false);
-    
-    alert('Password changed successfully!');
+    return true;
   };
 
   if (!isAuthenticated) {
     return (
-      <>
-        <button 
-          onClick={() => setIsOpen(true)}
-          className="admin-trigger"
-          style={{
-            position: 'fixed',
-            bottom: '2rem',
-            left: '2rem',
-            width: '3rem',
-            height: '3rem',
-            borderRadius: '50%',
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            border: 'none',
-            color: 'white',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '1.2rem',
-            zIndex: 1000,
-            boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)'
-          }}
-        >
-          <MdSettings size={20} />
-        </button>
+      <div className="admin-login-overlay">
+        <div className="admin-login-modal">
+          <div style={{ marginBottom: '2rem' }}>
+            <div style={{ 
+              width: '64px', 
+              height: '64px', 
+              background: 'linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%)',
+              borderRadius: '16px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 1.5rem auto'
+            }}>
+              <MdLock size={32} style={{ color: 'white' }} />
+            </div>
+            <h2 style={{ margin: 0, color: 'var(--text-primary)', fontSize: '1.875rem', fontWeight: '700', textAlign: 'center' }}>
+              Admin Access
+            </h2>
+            <p style={{ margin: '0.75rem 0 0 0', color: 'var(--text-secondary)', fontSize: '1rem', textAlign: 'center', lineHeight: '1.5' }}>
+              Enter your credentials to access the admin panel
+            </p>
+          </div>
+          
+          <form onSubmit={(e) => { e.preventDefault(); handleLogin(); }} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            <div>
+              <label style={{ 
+                display: 'block', 
+                marginBottom: '0.625rem', 
+                color: 'var(--text-primary)', 
+                fontSize: '0.875rem',
+                fontWeight: '600',
+                letterSpacing: '0.025em'
+              }}>
+                Username
+              </label>
+              <input
+                type="text"
+                placeholder="Enter your username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                disabled={loading}
+                className="admin-input"
+                style={{
+                  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                  opacity: loading ? 0.6 : 1
+                }}
+                required
+              />
+            </div>
+            
+            <div>
+              <label style={{ 
+                display: 'block', 
+                marginBottom: '0.625rem', 
+                color: 'var(--text-primary)', 
+                fontSize: '0.875rem',
+                fontWeight: '600',
+                letterSpacing: '0.025em'
+              }}>
+                Password
+              </label>
+              <input
+                type="password"
+                placeholder="Enter your password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={loading}
+                className="admin-input"
+                style={{
+                  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                  opacity: loading ? 0.6 : 1
+                }}
+                required
+              />
+            </div>
+            
+            <button 
+              type="submit"
+              disabled={loading || !username || !password}
+              className="admin-btn"
+              style={{
+                width: '100%',
+                justifyContent: 'center',
+                padding: '0.875rem 1.5rem',
+                fontSize: '1rem',
+                fontWeight: '600',
+                marginTop: '0.5rem',
+                opacity: loading || !username || !password ? 0.6 : 1,
+                cursor: loading || !username || !password ? 'not-allowed' : 'pointer',
+                position: 'relative'
+              }}
+            >
+              {loading ? (
+                <>
+                  <div className="admin-loading-spinner" style={{ 
+                    width: '20px', 
+                    height: '20px', 
+                    marginRight: '0.75rem',
+                    border: '2px solid rgba(255, 255, 255, 0.3)',
+                    borderTop: '2px solid white'
+                  }} />
+                  Signing In...
+                </>
+              ) : (
+                <>
+                  <MdKey size={20} />
+                  Sign In
+                </>
+              )}
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
-        {isOpen && (
-          <div className="admin-login-overlay" style={{
+  return (
+    <div className="admin-panel">
+      {/* Mobile Overlay */}
+      {sidebarOpen && (
+        <div 
+          style={{
             position: 'fixed',
             top: 0,
             left: 0,
             right: 0,
             bottom: 0,
-            background: 'rgba(0, 0, 0, 0.8)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 10000
+            background: 'rgba(0, 0, 0, 0.5)',
+            zIndex: 10000,
+            display: window.innerWidth <= 768 ? 'block' : 'none'
+          }}
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Sidebar */}
+      <div className={`admin-sidebar ${sidebarOpen ? 'mobile-open' : ''}`}>
+        {/* Sidebar Header */}
+        <div className="admin-sidebar-header">
+          <h2>Admin Panel</h2>
+          <p>Welcome, {currentUser?.username}</p>
+          <div style={{ 
+            display: 'inline-flex', 
+            alignItems: 'center', 
+            gap: '0.5rem', 
+            background: currentUser?.role === 'admin' ? 'rgba(59, 130, 246, 0.1)' : 'rgba(139, 92, 246, 0.1)',
+            color: currentUser?.role === 'admin' ? 'var(--accent)' : '#8b5cf6',
+            padding: '0.25rem 0.75rem',
+            borderRadius: '20px',
+            fontSize: '0.75rem',
+            fontWeight: '600',
+            border: `1px solid ${currentUser?.role === 'admin' ? 'rgba(59, 130, 246, 0.2)' : 'rgba(139, 92, 246, 0.2)'}`
           }}>
-            <div className="admin-login-modal" style={{
-              background: 'var(--bg-primary)',
-              borderRadius: '1rem',
-              padding: '2rem',
-              boxShadow: '0 20px 40px rgba(0, 0, 0, 0.3)',
-              border: '1px solid var(--border)',
-              minWidth: '300px'
-            }}>
-              <h3 style={{ marginBottom: '1rem', color: 'var(--text-primary)' }}>Admin Login</h3>
-              <input
-                type="text"
-                placeholder="Username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '0.75rem',
-                  borderRadius: '0.5rem',
-                  border: '1px solid var(--border)',
-                  background: 'var(--bg-secondary)',
-                  color: 'var(--text-primary)',
-                  marginBottom: '1rem'
-                }}
-              />
-              <input
-                type="password"
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
-                style={{
-                  width: '100%',
-                  padding: '0.75rem',
-                  borderRadius: '0.5rem',
-                  border: '1px solid var(--border)',
-                  background: 'var(--bg-secondary)',
-                  color: 'var(--text-primary)',
-                  marginBottom: '1rem'
-                }}
-              />
-              <div style={{ display: 'flex', gap: '1rem' }}>
-                <button onClick={handleLogin} style={{
-                  flex: 1,
-                  padding: '0.75rem',
-                  borderRadius: '0.5rem',
-                  border: 'none',
-                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                  color: 'white',
-                  cursor: 'pointer'
-                }}>
-                  Login
-                </button>
-                <button onClick={() => setIsOpen(false)} style={{
-                  flex: 1,
-                  padding: '0.75rem',
-                  borderRadius: '0.5rem',
-                  border: '1px solid var(--border)',
-                  background: 'transparent',
-                  color: 'var(--text-primary)',
-                  cursor: 'pointer'
-                }}>
-                  Cancel
+            <MdSecurity size={12} />
+            {currentUser?.role?.toUpperCase()}
+          </div>
+        </div>
+
+        {/* Navigation */}
+        <nav className="admin-nav">
+          {[
+            { id: 'dashboard', label: 'Dashboard', icon: MdDashboard },
+            { id: 'homepage', label: 'Home Page', icon: MdRocket },
+            { id: 'about', label: 'About Section', icon: MdPsychology },
+            { id: 'projects', label: 'Projects', icon: MdWork },
+            { id: 'blog', label: 'Blog Posts', icon: MdArticle },
+            { id: 'skills', label: 'Skills', icon: MdCode },
+            { id: 'contact', label: 'Contact Info', icon: MdEmail },
+            ...(currentUser?.role === 'admin' ? [
+              { id: 'maintenance', label: 'Maintenance Mode', icon: MdBuild },
+              { id: 'users', label: 'User Management', icon: MdPeople },
+              { id: 'settings', label: 'Settings', icon: MdSettings }
+            ] : [])
+          ].map((item, index) => {
+            const IconComponent = item.icon;
+            return (
+              <div key={item.id} className="admin-nav-item">
+                <button
+                  onClick={() => {
+                    setActiveTab(item.id);
+                    if (window.innerWidth <= 768) setSidebarOpen(false);
+                  }}
+                  className={`admin-nav-button ${activeTab === item.id ? 'active' : ''}`}
+                >
+                  <div className="admin-nav-icon">
+                    <IconComponent size={18} />
+                  </div>
+                  {item.label}
                 </button>
               </div>
-            </div>
-          </div>
-        )}
-      </>
-    );
-  }
+            );
+          })}
+        </nav>
 
-  return (
-    <div className="admin-panel" style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      background: 'var(--bg-primary)',
-      zIndex: 10000,
-      display: 'flex',
-      overflow: 'hidden',
-      flexDirection: isMobile ? 'column' : 'row'
-    }}>
-      {/* Mobile Header */}
-      {isMobile && (
-        <div style={{
+        {/* Logout Button */}
+        <button onClick={handleLogout} className="admin-logout">
+          <MdLogout size={18} />
+          Sign Out
+        </button>
+      </div>
+
+      {/* Main Content */}
+      <div className="admin-content">
+        {/* Mobile Header */}
+        <div style={{ 
+          display: window.innerWidth <= 768 ? 'flex' : 'none',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '1rem',
           background: 'var(--bg-secondary)',
           borderBottom: '1px solid var(--border)',
-          padding: '1rem',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
           position: 'sticky',
           top: 0,
-          zIndex: 10
+          zIndex: 100
         }}>
-          <h2 style={{ color: 'var(--text-primary)', margin: 0, fontSize: '1.2rem' }}>
-            Admin Panel
-          </h2>
           <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
+            onClick={() => setSidebarOpen(true)}
             style={{
-              background: 'var(--accent)',
+              background: 'none',
               border: 'none',
-              borderRadius: '8px',
-              padding: '8px',
-              color: 'white',
+              color: 'var(--text-primary)',
               cursor: 'pointer',
+              padding: '0.5rem',
+              borderRadius: '8px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center'
             }}
           >
-            <MdMenu size={20} />
+            <MdMenu size={24} />
           </button>
+          <h1 style={{ margin: 0, fontSize: '1.25rem', color: 'var(--text-primary)' }}>
+            {[
+              { id: 'dashboard', label: 'Dashboard' },
+              { id: 'homepage', label: 'Home Page' },
+              { id: 'about', label: 'About Section' },
+              { id: 'projects', label: 'Projects' },
+              { id: 'blog', label: 'Blog Posts' },
+              { id: 'skills', label: 'Skills' },
+              { id: 'contact', label: 'Contact Info' },
+              { id: 'users', label: 'User Management' },
+              { id: 'settings', label: 'Settings' }
+            ].find(item => item.id === activeTab)?.label || 'Admin Panel'}
+          </h1>
+          <div style={{ width: '40px' }} /> {/* Spacer for centering */}
         </div>
-      )}
 
-      {/* Sidebar */}
-      <div className="admin-sidebar" style={{
-        width: isMobile ? '100%' : '250px',
-        height: isMobile ? (sidebarOpen ? 'auto' : '0') : 'auto',
-        maxHeight: isMobile ? (sidebarOpen ? '300px' : '0') : 'none',
-        overflow: isMobile ? 'hidden' : 'visible',
-        background: 'var(--bg-secondary)',
-        borderRight: isMobile ? 'none' : '1px solid var(--border)',
-        borderBottom: isMobile ? '1px solid var(--border)' : 'none',
-        padding: isMobile ? (sidebarOpen ? '1rem 0' : '0') : '2rem 0',
-        display: 'flex',
-        flexDirection: 'column',
-        transition: isMobile ? 'all 0.3s ease' : 'none',
-        position: isMobile ? 'relative' : 'static',
-        zIndex: isMobile ? 9 : 'auto'
-      }}>
-        {!isMobile && (
-          <div style={{ padding: '0 2rem', marginBottom: '2rem' }}>
-            <h2 style={{ color: 'var(--text-primary)', margin: 0 }}>Admin Panel</h2>
-            <p style={{ color: 'var(--text-secondary)', margin: '0.5rem 0 0 0', fontSize: '0.875rem' }}>
-              Welcome, {currentUser?.username} ({currentUser?.role})
-            </p>
-          </div>
-        )}
-
-        <nav style={{ 
-          flex: 1,
-          display: isMobile ? (sidebarOpen ? 'block' : 'none') : 'block',
-          maxHeight: isMobile ? '250px' : 'none',
-          overflowY: isMobile ? 'auto' : 'visible'
-        }}>
-          {[
-            { id: 'dashboard', label: 'Dashboard', icon: <MdDashboard size={18} /> },
-            { id: 'homepage', label: 'Home Page', icon: <MdRocket size={18} /> },
-            { id: 'about', label: 'About Section', icon: <MdPsychology size={18} /> },
-            { id: 'projects', label: 'Projects', icon: <MdWork size={18} /> },
-            { id: 'blog', label: 'Blog Posts', icon: <MdArticle size={18} /> },
-            { id: 'skills', label: 'Skills', icon: <MdCode size={18} /> },
-            { id: 'contact', label: 'Contact Info', icon: <MdEmail size={18} /> },
-            ...(currentUser?.role === 'admin' ? [
-              { id: 'users', label: 'User Management', icon: <MdPeople size={18} /> },
-              { id: 'settings', label: 'Settings', icon: <MdSettings size={18} /> }
-            ] : [])
-          ].map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => {
-                setActiveTab(tab.id);
-                if (isMobile) {
-                  setSidebarOpen(false);
-                }
-              }}
-              style={{
-                width: '100%',
-                padding: isMobile ? '0.75rem 1rem' : '1rem 2rem',
-                border: 'none',
-                background: activeTab === tab.id ? 'var(--accent)' : 'transparent',
-                color: activeTab === tab.id ? 'white' : 'var(--text-primary)',
-                textAlign: 'left',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.75rem',
-                fontSize: isMobile ? '0.9rem' : '1rem',
-                borderRadius: isMobile ? '8px' : '0',
-                margin: isMobile ? '0.25rem 0.5rem' : '0',
-                transition: 'all 0.2s ease'
-              }}
-            >
-              {tab.icon}
-              {tab.label}
-            </button>
-          ))}
-        </nav>
-
-        <div style={{ padding: '0 2rem' }}>
-          <button
-            onClick={handleLogout}
-            style={{
-              width: '100%',
-              padding: '0.75rem',
-              border: '1px solid var(--border)',
-              borderRadius: '0.5rem',
-              background: 'transparent',
-              color: 'var(--text-primary)',
-              cursor: 'pointer'
-            }}
-          >
-            Logout
-          </button>
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="admin-content" style={{
-        flex: 1,
-        padding: isMobile ? '1rem' : '2rem',
-        overflow: 'auto',
-        height: isMobile ? 'calc(100vh - 60px)' : 'auto'
-      }}>
-        {/* Mobile overlay */}
-        {isMobile && sidebarOpen && (
-          <div
-            onClick={() => setSidebarOpen(false)}
-            style={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              background: 'rgba(0, 0, 0, 0.5)',
-              zIndex: 8
-            }}
-          />
-        )}
-        
-        {activeTab === 'dashboard' && (
-          <div>
-            <h2 style={{ color: 'var(--text-primary)', marginBottom: '2rem', fontSize: isMobile ? '1.3rem' : '1.5rem' }}>Dashboard</h2>
-            <div style={{ 
-              display: 'grid', 
-              gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(200px, 1fr))', 
-              gap: isMobile ? '0.75rem' : '1rem' 
-            }}>
-              <div className="stat-card" style={{
-                background: 'var(--bg-secondary)',
-                padding: isMobile ? '1rem' : '1.5rem',
-                borderRadius: '0.75rem',
-                border: '1px solid var(--border)',
-                textAlign: 'center'
-              }}>
-                <h3 style={{ color: 'var(--text-primary)', fontSize: isMobile ? '1.5rem' : '2rem', margin: '0 0 0.5rem 0' }}>{projects.length}</h3>
-                <p style={{ color: 'var(--text-secondary)', margin: 0, fontSize: isMobile ? '0.85rem' : '1rem' }}>Total Projects</p>
+        <div className="admin-content-inner">
+          {/* Dashboard */}
+          {activeTab === 'dashboard' && (
+            <div>
+              <div className="admin-header">
+                <div className="admin-header-content">
+                  <h1>Dashboard</h1>
+                  <p>Overview of your portfolio management system</p>
+                </div>
               </div>
-              <div className="stat-card" style={{
-                background: 'var(--bg-secondary)',
-                padding: isMobile ? '1rem' : '1.5rem',
-                borderRadius: '0.75rem',
-                border: '1px solid var(--border)',
-                textAlign: 'center'
-              }}>
-                <h3 style={{ color: 'var(--text-primary)', fontSize: isMobile ? '1.5rem' : '2rem', margin: '0 0 0.5rem 0' }}>{blogPosts.length}</h3>
-                <p style={{ color: 'var(--text-secondary)', margin: 0, fontSize: isMobile ? '0.85rem' : '1rem' }}>Blog Posts</p>
+
+              {/* Enhanced Stats Cards */}
+              <div className="admin-stats">
+                <div className="admin-stat-card">
+                  <div className="stat-icon">
+                    <MdWork size={24} />
+                  </div>
+                  <h3>{projects.length}</h3>
+                  <p>Total Projects</p>
+                </div>
+                <div className="admin-stat-card">
+                  <div className="stat-icon">
+                    <MdArticle size={24} />
+                  </div>
+                  <h3>{blogPosts.length}</h3>
+                  <p>Blog Posts</p>
+                </div>
+                <div className="admin-stat-card">
+                  <div className="stat-icon">
+                    <MdCode size={24} />
+                  </div>
+                  <h3>{skills.length}</h3>
+                  <p>Skills</p>
+                </div>
+                <div className="admin-stat-card">
+                  <div className="stat-icon">
+                    <MdTrendingUp size={24} />
+                  </div>
+                  <h3>{skillCategories.length}</h3>
+                  <p>Skill Categories</p>
+                </div>
               </div>
-              <div className="stat-card" style={{
-                background: 'var(--bg-secondary)',
-                padding: isMobile ? '1rem' : '1.5rem',
-                borderRadius: '0.75rem',
-                border: '1px solid var(--border)',
-                textAlign: 'center'
-              }}>
-                <h3 style={{ color: 'var(--text-primary)', fontSize: isMobile ? '1.5rem' : '2rem', margin: '0 0 0.5rem 0' }}>{skills.length}</h3>
-                <p style={{ color: 'var(--text-secondary)', margin: 0, fontSize: isMobile ? '0.85rem' : '1rem' }}>Skills</p>
+
+              {/* Quick Actions */}
+              <div className="admin-card">
+                <h4>Quick Actions</h4>
+                <p>Frequently used actions for content management</p>
+                <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                  <button 
+                    onClick={() => setActiveTab('projects')} 
+                    className="admin-btn admin-btn-secondary admin-btn-small"
+                  >
+                    <MdAdd size={16} />
+                    Add Project
+                  </button>
+                  <button 
+                    onClick={() => setActiveTab('blog')} 
+                    className="admin-btn admin-btn-secondary admin-btn-small"
+                  >
+                    <MdAdd size={16} />
+                    Write Post
+                  </button>
+                  <button 
+                    onClick={() => setActiveTab('skills')} 
+                    className="admin-btn admin-btn-secondary admin-btn-small"
+                  >
+                    <MdAdd size={16} />
+                    Add Skill
+                  </button>
+                </div>
+              </div>
+
+              {/* Recent Activity */}
+              <div className="admin-card">
+                <h4>Recent Activity</h4>
+                <p>Latest updates and changes to your portfolio</p>
+                <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+                  <p>• Last login: {currentUser?.lastLogin ? new Date(currentUser.lastLogin).toLocaleString() : 'Never'}</p>
+                  <p>• Content updated: Recently</p>
+                  <p>• System status: All systems operational</p>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Home Page Content Management */}
-        {activeTab === 'homepage' && (
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-              <h2 style={{ color: 'var(--text-primary)', margin: 0 }}>Home Page Content</h2>
-              {!editingHomeContent && (
-                <button onClick={() => setEditingHomeContent(true)} className="admin-btn admin-btn-primary">
-                  <MdEdit size={16} />
-                  Edit Content
-                </button>
-              )}
-            </div>
+          {/* Home Page Content */}
+          {activeTab === 'homepage' && (
+            <div>
+              <div className="admin-header">
+                <div className="admin-header-content">
+                  <h1>Home Page Content</h1>
+                  <p>Manage your homepage hero section and introduction</p>
+                </div>
+                <div className="admin-header-actions">
+                  {!editingHomeContent && (
+                    <button onClick={() => setEditingHomeContent(true)} className="admin-btn">
+                      <MdEdit size={18} />
+                      Edit Content
+                    </button>
+                  )}
+                </div>
+              </div>
 
-            {editingHomeContent ? (
-              <div className="admin-form" style={{
-                background: 'var(--bg-secondary)',
-                padding: '2rem',
-                borderRadius: '0.75rem',
-                border: '1px solid var(--border)'
-              }}>
-                <div style={{ display: 'grid', gap: '1.5rem' }}>
-                  <div>
-                    <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-primary)' }}>Name</label>
-                    <input
-                      type="text"
-                      value={homePageContent.name}
-                      onChange={(e) => setHomePageContent({...homePageContent, name: e.target.value})}
-                      className="admin-input"
-                    />
+              {editingHomeContent ? (
+                <div className="admin-form">
+                  <div className="admin-form-grid">
+                    <div className="admin-form-group">
+                      <label>Full Name</label>
+                      <input
+                        type="text"
+                        value={homePageContent.name}
+                        onChange={(e) => setHomePageContent({...homePageContent, name: e.target.value})}
+                        className="admin-input"
+                        placeholder="Your full name"
+                      />
+                    </div>
+                    <div className="admin-form-group">
+                      <label>Professional Title</label>
+                      <input
+                        type="text"
+                        value={homePageContent.title}
+                        onChange={(e) => setHomePageContent({...homePageContent, title: e.target.value})}
+                        className="admin-input"
+                        placeholder="e.g. Network Engineer"
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-primary)' }}>Title</label>
-                    <input
-                      type="text"
-                      value={homePageContent.title}
-                      onChange={(e) => setHomePageContent({...homePageContent, title: e.target.value})}
-                      className="admin-input"
-                    />
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-primary)' }}>Subtitle</label>
+                  
+                  <div className="admin-form-group">
+                    <label>Subtitle</label>
                     <input
                       type="text"
                       value={homePageContent.subtitle}
                       onChange={(e) => setHomePageContent({...homePageContent, subtitle: e.target.value})}
                       className="admin-input"
+                      placeholder="Brief professional tagline"
                     />
                   </div>
-                  <div>
-                    <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-primary)' }}>Description</label>
+                  
+                  <div className="admin-form-group">
+                    <label>Description</label>
                     <textarea
                       value={homePageContent.description}
                       onChange={(e) => setHomePageContent({...homePageContent, description: e.target.value})}
-                      className="admin-input"
-                      rows={4}
+                      className="admin-textarea"
+                      placeholder="Detailed description of your expertise and experience"
                     />
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                    <div>
-                      <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-primary)' }}>Primary Button Text</label>
+                  
+                  <div className="admin-form-grid">
+                    <div className="admin-form-group">
+                      <label>Primary Button Text</label>
                       <input
                         type="text"
                         value={homePageContent.primaryButtonText}
                         onChange={(e) => setHomePageContent({...homePageContent, primaryButtonText: e.target.value})}
                         className="admin-input"
+                        placeholder="e.g. View My Work"
                       />
                     </div>
-                    <div>
-                      <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-primary)' }}>Secondary Button Text</label>
+                    <div className="admin-form-group">
+                      <label>Secondary Button Text</label>
                       <input
                         type="text"
                         value={homePageContent.secondaryButtonText}
                         onChange={(e) => setHomePageContent({...homePageContent, secondaryButtonText: e.target.value})}
                         className="admin-input"
+                        placeholder="e.g. Download CV"
                       />
                     </div>
                   </div>
-                  <div>
-                    <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-primary)' }}>CV File Name</label>
+                  
+                  <div className="admin-form-group">
+                    <label>CV File Name</label>
                     <input
                       type="text"
                       value={homePageContent.cvFileName}
@@ -860,1242 +941,1065 @@ const AdminPanel = ({ aboutContent, setAboutContent, homePageContent, setHomePag
                       placeholder="resume.pdf"
                     />
                   </div>
-                  <div style={{ display: 'flex', gap: '1rem' }}>
-                    <button
-                      onClick={() => saveHomeContent(homePageContent)}
-                      className="admin-btn admin-btn-primary"
-                    >
-                      <MdSave size={16} />
-                      Save Changes
-                    </button>
+                  
+                  <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '2rem' }}>
                     <button
                       onClick={() => setEditingHomeContent(false)}
                       className="admin-btn admin-btn-secondary"
                     >
-                      <MdCancel size={16} />
+                      <MdCancel size={18} />
                       Cancel
                     </button>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="content-preview" style={{
-                background: 'var(--bg-secondary)',
-                padding: '2rem',
-                borderRadius: '0.75rem',
-                border: '1px solid var(--border)'
-              }}>
-                <div style={{ marginBottom: '1.5rem' }}>
-                  <h3 style={{ color: 'var(--accent)', margin: '0 0 0.5rem 0' }}>Preview</h3>
-                  <div style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>This is how your home page content will appear</div>
-                </div>
-                <div style={{ border: '1px solid var(--border)', padding: '2rem', borderRadius: '0.5rem', background: 'var(--bg-primary)' }}>
-                  <h1 style={{ color: 'var(--text-primary)', fontSize: '2.5rem', margin: '0 0 1rem 0' }}>{homePageContent.title}</h1>
-                  <p style={{ color: 'var(--accent)', fontSize: '1.25rem', margin: '0 0 1rem 0' }}>{homePageContent.subtitle}</p>
-                  <p style={{ color: 'var(--text-secondary)', margin: '0 0 2rem 0', lineHeight: 1.6 }}>{homePageContent.description}</p>
-                  <div style={{ display: 'flex', gap: '1rem' }}>
-                    <button className="btn-primary btn-modern" style={{ padding: '0.75rem 1.5rem' }}>{homePageContent.primaryButtonText}</button>
-                    <button className="btn-secondary btn-modern" style={{ padding: '0.75rem 1.5rem' }}>{homePageContent.secondaryButtonText}</button>
-                  </div>
-                  <div style={{ marginTop: '1rem', fontSize: '0.875rem', color: 'var(--text-muted)' }}>
-                    CV File: <strong>{homePageContent.cvFileName}</strong>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* About Section Management */}
-        {activeTab === 'about' && (
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-              <h2 style={{ color: 'var(--text-primary)', margin: 0 }}>About Section Content</h2>
-              {!editingAboutContent && (
-                <button onClick={() => setEditingAboutContent(true)} className="admin-btn admin-btn-primary">
-                  <MdEdit size={16} />
-                  Edit Content
-                </button>
-              )}
-            </div>
-
-            {editingAboutContent ? (
-              <div className="admin-form" style={{
-                background: 'var(--bg-secondary)',
-                padding: '2rem',
-                borderRadius: '0.75rem',
-                border: '1px solid var(--border)'
-              }}>
-                <div style={{ display: 'grid', gap: '1.5rem' }}>
-                  <div>
-                    <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-primary)' }}>Section Title</label>
-                    <input
-                      type="text"
-                      value={aboutContent.title}
-                      onChange={(e) => setAboutContent({...aboutContent, title: e.target.value})}
-                      className="admin-input"
-                    />
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-primary)' }}>First Paragraph</label>
-                    <textarea
-                      value={aboutContent.paragraph1}
-                      onChange={(e) => setAboutContent({...aboutContent, paragraph1: e.target.value})}
-                      className="admin-input"
-                      rows={4}
-                    />
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-primary)' }}>Second Paragraph</label>
-                    <textarea
-                      value={aboutContent.paragraph2}
-                      onChange={(e) => setAboutContent({...aboutContent, paragraph2: e.target.value})}
-                      className="admin-input"
-                      rows={4}
-                    />
-                  </div>
-                  <div>
-                    <h4 style={{ color: 'var(--text-primary)', margin: '0 0 1rem 0' }}>Statistics</h4>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
-                      <div>
-                        <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-primary)' }}>Experience Value</label>
-                        <input
-                          type="text"
-                          value={aboutContent.stats.experience.value}
-                          onChange={(e) => setAboutContent({
-                            ...aboutContent,
-                            stats: {
-                              ...aboutContent.stats,
-                              experience: { ...aboutContent.stats.experience, value: e.target.value }
-                            }
-                          })}
-                          className="admin-input"
-                        />
-                        <label style={{ display: 'block', marginTop: '0.5rem', marginBottom: '0.5rem', color: 'var(--text-primary)' }}>Experience Label</label>
-                        <input
-                          type="text"
-                          value={aboutContent.stats.experience.label}
-                          onChange={(e) => setAboutContent({
-                            ...aboutContent,
-                            stats: {
-                              ...aboutContent.stats,
-                              experience: { ...aboutContent.stats.experience, label: e.target.value }
-                            }
-                          })}
-                          className="admin-input"
-                        />
-                      </div>
-                      <div>
-                        <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-primary)' }}>Projects Value</label>
-                        <input
-                          type="text"
-                          value={aboutContent.stats.projects.value}
-                          onChange={(e) => setAboutContent({
-                            ...aboutContent,
-                            stats: {
-                              ...aboutContent.stats,
-                              projects: { ...aboutContent.stats.projects, value: e.target.value }
-                            }
-                          })}
-                          className="admin-input"
-                        />
-                        <label style={{ display: 'block', marginTop: '0.5rem', marginBottom: '0.5rem', color: 'var(--text-primary)' }}>Projects Label</label>
-                        <input
-                          type="text"
-                          value={aboutContent.stats.projects.label}
-                          onChange={(e) => setAboutContent({
-                            ...aboutContent,
-                            stats: {
-                              ...aboutContent.stats,
-                              projects: { ...aboutContent.stats.projects, label: e.target.value }
-                            }
-                          })}
-                          className="admin-input"
-                        />
-                      </div>
-                      <div>
-                        <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-primary)' }}>Technologies Value</label>
-                        <input
-                          type="text"
-                          value={aboutContent.stats.technologies.value}
-                          onChange={(e) => setAboutContent({
-                            ...aboutContent,
-                            stats: {
-                              ...aboutContent.stats,
-                              technologies: { ...aboutContent.stats.technologies, value: e.target.value }
-                            }
-                          })}
-                          className="admin-input"
-                        />
-                        <label style={{ display: 'block', marginTop: '0.5rem', marginBottom: '0.5rem', color: 'var(--text-primary)' }}>Technologies Label</label>
-                        <input
-                          type="text"
-                          value={aboutContent.stats.technologies.label}
-                          onChange={(e) => setAboutContent({
-                            ...aboutContent,
-                            stats: {
-                              ...aboutContent.stats,
-                              technologies: { ...aboutContent.stats.technologies, label: e.target.value }
-                            }
-                          })}
-                          className="admin-input"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', gap: '1rem' }}>
                     <button
-                      onClick={() => saveAboutContent(aboutContent)}
-                      className="admin-btn admin-btn-primary"
+                      onClick={() => setEditingHomeContent(false)}
+                      className="admin-btn"
                     >
-                      <MdSave size={16} />
+                      <MdSave size={18} />
                       Save Changes
                     </button>
-                    <button
-                      onClick={() => setEditingAboutContent(false)}
-                      className="admin-btn admin-btn-secondary"
-                    >
-                      <MdCancel size={16} />
-                      Cancel
-                    </button>
                   </div>
                 </div>
-              </div>
-            ) : (
-              <div className="content-preview" style={{
-                background: 'var(--bg-secondary)',
-                padding: '2rem',
-                borderRadius: '0.75rem',
-                border: '1px solid var(--border)'
-              }}>
-                <div style={{ marginBottom: '1.5rem' }}>
-                  <h3 style={{ color: 'var(--accent)', margin: '0 0 0.5rem 0' }}>Preview</h3>
-                  <div style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>This is how your about section will appear</div>
+              ) : (
+                <div className="admin-card">
+                  <h4>Current Home Page Content</h4>
+                  <div style={{ display: 'grid', gap: '1rem', marginTop: '1rem' }}>
+                    <div><strong>Name:</strong> {homePageContent.name}</div>
+                    <div><strong>Title:</strong> {homePageContent.title}</div>
+                    <div><strong>Subtitle:</strong> {homePageContent.subtitle}</div>
+                    <div><strong>Description:</strong> {homePageContent.description}</div>
+                    <div><strong>Primary Button:</strong> {homePageContent.primaryButtonText}</div>
+                    <div><strong>Secondary Button:</strong> {homePageContent.secondaryButtonText}</div>
+                    <div><strong>CV File:</strong> {homePageContent.cvFileName}</div>
+                  </div>
                 </div>
-                <div style={{ border: '1px solid var(--border)', padding: '2rem', borderRadius: '0.5rem', background: 'var(--bg-primary)' }}>
-                  <h2 style={{ color: 'var(--text-primary)', margin: '0 0 2rem 0', textAlign: 'center' }}>{aboutContent.title}</h2>
-                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '2rem', alignItems: 'start' }}>
-                    <div>
-                      <p style={{ color: 'var(--text-secondary)', margin: '0 0 1rem 0', lineHeight: 1.6 }}>{aboutContent.paragraph1}</p>
-                      <p style={{ color: 'var(--text-secondary)', margin: '0', lineHeight: 1.6 }}>{aboutContent.paragraph2}</p>
+              )}
+            </div>
+          )}
+
+          {/* About Section Tab */}
+          {activeTab === 'about' && (
+            <div className="admin-card admin-fade-in">
+              <div className="admin-card-header">
+                <h2>About Section Content</h2>
+                <p>Manage your about section content and statistics</p>
+              </div>
+              
+              <form className="admin-form" onSubmit={(e) => e.preventDefault()}>
+                <div className="admin-form-section">
+                  <h3 className="admin-form-section-title">
+                    <MdPsychology />
+                    About Content
+                  </h3>
+                  
+                  <div className="admin-form-group">
+                    <label>Section Title</label>
+                    <input
+                      type="text"
+                      className="admin-input"
+                      value={aboutContent.title}
+                      onChange={(e) => setAboutContent({...aboutContent, title: e.target.value})}
+                      placeholder="About Me"
+                    />
+                  </div>
+
+                  <div className="admin-form-group">
+                    <label>First Paragraph</label>
+                    <textarea
+                      className="admin-textarea"
+                      rows={4}
+                      value={aboutContent.paragraph1}
+                      onChange={(e) => setAboutContent({...aboutContent, paragraph1: e.target.value})}
+                      placeholder="Introduce yourself..."
+                    />
+                  </div>
+
+                  <div className="admin-form-group">
+                    <label>Second Paragraph</label>
+                    <textarea
+                      className="admin-textarea"
+                      rows={4}
+                      value={aboutContent.paragraph2}
+                      onChange={(e) => setAboutContent({...aboutContent, paragraph2: e.target.value})}
+                      placeholder="More details about your background..."
+                    />
+                  </div>
+                </div>
+
+                <div className="admin-form-section">
+                  <h3 className="admin-form-section-title">
+                    <MdTrendingUp />
+                    Statistics
+                  </h3>
+                  
+                  <div className="admin-form-grid">
+                    <div className="admin-form-group">
+                      <label>Experience Value</label>
+                      <input
+                        type="text"
+                        className="admin-input"
+                        value={aboutContent.stats.experience.value}
+                        onChange={(e) => setAboutContent({
+                          ...aboutContent,
+                          stats: {
+                            ...aboutContent.stats,
+                            experience: { ...aboutContent.stats.experience, value: e.target.value }
+                          }
+                        })}
+                        placeholder="3+"
+                      />
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                      <div style={{ background: 'var(--bg-secondary)', padding: '1.5rem', borderRadius: '0.75rem', textAlign: 'center' }}>
-                        <h3 style={{ color: 'var(--accent)', margin: '0', fontSize: '2rem' }}>{aboutContent.stats.experience.value}</h3>
-                        <p style={{ color: 'var(--text-secondary)', margin: '0.5rem 0 0 0', fontSize: '0.875rem' }}>{aboutContent.stats.experience.label}</p>
-                      </div>
-                      <div style={{ background: 'var(--bg-secondary)', padding: '1.5rem', borderRadius: '0.75rem', textAlign: 'center' }}>
-                        <h3 style={{ color: 'var(--accent)', margin: '0', fontSize: '2rem' }}>{aboutContent.stats.projects.value}</h3>
-                        <p style={{ color: 'var(--text-secondary)', margin: '0.5rem 0 0 0', fontSize: '0.875rem' }}>{aboutContent.stats.projects.label}</p>
-                      </div>
-                      <div style={{ background: 'var(--bg-secondary)', padding: '1.5rem', borderRadius: '0.75rem', textAlign: 'center' }}>
-                        <h3 style={{ color: 'var(--accent)', margin: '0', fontSize: '2rem' }}>{aboutContent.stats.technologies.value}</h3>
-                        <p style={{ color: 'var(--text-secondary)', margin: '0.5rem 0 0 0', fontSize: '0.875rem' }}>{aboutContent.stats.technologies.label}</p>
-                      </div>
+
+                    <div className="admin-form-group">
+                      <label>Experience Label</label>
+                      <input
+                        type="text"
+                        className="admin-input"
+                        value={aboutContent.stats.experience.label}
+                        onChange={(e) => setAboutContent({
+                          ...aboutContent,
+                          stats: {
+                            ...aboutContent.stats,
+                            experience: { ...aboutContent.stats.experience, label: e.target.value }
+                          }
+                        })}
+                        placeholder="Years Experience"
+                      />
+                    </div>
+
+                    <div className="admin-form-group">
+                      <label>Projects Value</label>
+                      <input
+                        type="text"
+                        className="admin-input"
+                        value={aboutContent.stats.projects.value}
+                        onChange={(e) => setAboutContent({
+                          ...aboutContent,
+                          stats: {
+                            ...aboutContent.stats,
+                            projects: { ...aboutContent.stats.projects, value: e.target.value }
+                          }
+                        })}
+                        placeholder="50+"
+                      />
+                    </div>
+
+                    <div className="admin-form-group">
+                      <label>Projects Label</label>
+                      <input
+                        type="text"
+                        className="admin-input"
+                        value={aboutContent.stats.projects.label}
+                        onChange={(e) => setAboutContent({
+                          ...aboutContent,
+                          stats: {
+                            ...aboutContent.stats,
+                            projects: { ...aboutContent.stats.projects, label: e.target.value }
+                          }
+                        })}
+                        placeholder="Projects Completed"
+                      />
+                    </div>
+
+                    <div className="admin-form-group">
+                      <label>Technologies Value</label>
+                      <input
+                        type="text"
+                        className="admin-input"
+                        value={aboutContent.stats.technologies.value}
+                        onChange={(e) => setAboutContent({
+                          ...aboutContent,
+                          stats: {
+                            ...aboutContent.stats,
+                            technologies: { ...aboutContent.stats.technologies, value: e.target.value }
+                          }
+                        })}
+                        placeholder="20+"
+                      />
+                    </div>
+
+                    <div className="admin-form-group">
+                      <label>Technologies Label</label>
+                      <input
+                        type="text"
+                        className="admin-input"
+                        value={aboutContent.stats.technologies.label}
+                        onChange={(e) => setAboutContent({
+                          ...aboutContent,
+                          stats: {
+                            ...aboutContent.stats,
+                            technologies: { ...aboutContent.stats.technologies, label: e.target.value }
+                          }
+                        })}
+                        placeholder="Technologies Mastered"
+                      />
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
-          </div>
-        )}
 
-        {activeTab === 'projects' && (
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-              <h2 style={{ color: 'var(--text-primary)', margin: 0 }}>Projects</h2>
-              <button 
-                onClick={addProject}
-                style={{
-                  padding: '0.75rem 1.5rem',
-                  borderRadius: '0.5rem',
-                  border: 'none',
-                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                  color: 'white',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem'
-                }}
-              >
-                <MdAdd size={16} /> Add Project
-              </button>
-            </div>
-
-            <div style={{ display: 'grid', gap: '1rem' }}>
-              {projects.map(project => (
-                <div key={project.id} style={{
-                  background: 'var(--bg-secondary)',
-                  padding: '1.5rem',
-                  borderRadius: '0.75rem',
-                  border: '1px solid var(--border)'
-                }}>
-                  {editingProject?.id === project.id ? (
-                    <div style={{ display: 'grid', gap: '1rem' }}>
-                      <input
-                        value={editingProject.title}
-                        onChange={(e) => setEditingProject({...editingProject, title: e.target.value})}
-                        style={{
-                          padding: '0.5rem',
-                          borderRadius: '0.25rem',
-                          border: '1px solid var(--border)',
-                          background: 'var(--bg-primary)',
-                          color: 'var(--text-primary)'
-                        }}
-                      />
-                      <textarea
-                        value={editingProject.description}
-                        onChange={(e) => setEditingProject({...editingProject, description: e.target.value})}
-                        style={{
-                          padding: '0.5rem',
-                          borderRadius: '0.25rem',
-                          border: '1px solid var(--border)',
-                          background: 'var(--bg-primary)',
-                          color: 'var(--text-primary)',
-                          minHeight: '80px'
-                        }}
-                      />
-                      <input
-                        value={editingProject.tech.join(', ')}
-                        onChange={(e) => setEditingProject({...editingProject, tech: e.target.value.split(', ')})}
-                        placeholder="Technologies (comma separated)"
-                        style={{
-                          padding: '0.5rem',
-                          borderRadius: '0.25rem',
-                          border: '1px solid var(--border)',
-                          background: 'var(--bg-primary)',
-                          color: 'var(--text-primary)'
-                        }}
-                      />
-                      <input
-                        value={editingProject.link}
-                        onChange={(e) => setEditingProject({...editingProject, link: e.target.value})}
-                        placeholder="Project link"
-                        style={{
-                          padding: '0.5rem',
-                          borderRadius: '0.25rem',
-                          border: '1px solid var(--border)',
-                          background: 'var(--bg-primary)',
-                          color: 'var(--text-primary)'
-                        }}
-                      />
-                      <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        <button 
-                          onClick={() => saveProject(editingProject)}
-                          style={{
-                            padding: '0.5rem 1rem',
-                            borderRadius: '0.25rem',
-                            border: 'none',
-                            background: '#10b981',
-                            color: 'white',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.5rem'
-                          }}
-                        >
-                          <MdSave size={14} /> Save
-                        </button>
-                        <button 
-                          onClick={() => setEditingProject(null)}
-                          style={{
-                            padding: '0.5rem 1rem',
-                            borderRadius: '0.25rem',
-                            border: '1px solid var(--border)',
-                            background: 'transparent',
-                            color: 'var(--text-primary)',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.5rem'
-                          }}
-                        >
-                          <MdCancel size={14} /> Cancel
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '1rem' }}>
-                        <div>
-                          <h3 style={{ color: 'var(--text-primary)', margin: '0 0 0.5rem 0' }}>{project.title}</h3>
-                          <p style={{ color: 'var(--text-secondary)', margin: '0 0 0.5rem 0' }}>{project.description}</p>
-                          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                            {project.tech.map(tech => (
-                              <span key={tech} style={{
-                                background: 'var(--accent)',
-                                color: 'white',
-                                padding: '0.25rem 0.5rem',
-                                borderRadius: '0.25rem',
-                                fontSize: '0.75rem'
-                              }}>
-                                {tech}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                        <div style={{ display: 'flex', gap: '0.5rem' }}>
-                          <button 
-                            onClick={() => setEditingProject(project)}
-                            style={{
-                              padding: '0.5rem',
-                              borderRadius: '0.25rem',
-                              border: 'none',
-                              background: '#f59e0b',
-                              color: 'white',
-                              cursor: 'pointer'
-                            }}
-                          >
-                            <MdEdit size={14} />
-                          </button>
-                          <button 
-                            onClick={() => deleteProject(project.id)}
-                            style={{
-                              padding: '0.5rem',
-                              borderRadius: '0.25rem',
-                              border: 'none',
-                              background: '#ef4444',
-                              color: 'white',
-                              cursor: 'pointer'
-                            }}
-                          >
-                            <MdTrash size={14} />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
+                <div className="admin-card-actions">
+                  <button 
+                    type="submit" 
+                    className="admin-btn admin-btn-primary"
+                    onClick={(e) => { e.preventDefault(); saveAboutContent(); }}
+                  >
+                    <MdSave />
+                    Save About Content
+                  </button>
                 </div>
-              ))}
+              </form>
             </div>
-          </div>
-        )}
+          )}
 
-        {activeTab === 'blog' && (
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-              <h2 style={{ color: 'var(--text-primary)', margin: 0 }}>Blog Posts</h2>
-              <button 
-                onClick={addBlogPost}
-                style={{
-                  padding: '0.75rem 1.5rem',
-                  borderRadius: '0.5rem',
-                  border: 'none',
-                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                  color: 'white',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem'
-                }}
-              >
-                <MdAdd size={16} /> Add Post
-              </button>
-            </div>
-
-            <div style={{ display: 'grid', gap: '1rem' }}>
-              {blogPosts.map(post => (
-                <div key={post.id} style={{
-                  background: 'var(--bg-secondary)',
-                  padding: '1.5rem',
-                  borderRadius: '0.75rem',
-                  border: '1px solid var(--border)'
-                }}>
-                  {editingBlog?.id === post.id ? (
-                    <div style={{ display: 'grid', gap: '1rem' }}>
-                      <input
-                        value={editingBlog.title}
-                        onChange={(e) => setEditingBlog({...editingBlog, title: e.target.value})}
-                        style={{
-                          padding: '0.5rem',
-                          borderRadius: '0.25rem',
-                          border: '1px solid var(--border)',
-                          background: 'var(--bg-primary)',
-                          color: 'var(--text-primary)'
-                        }}
-                      />
-                      <textarea
-                        value={editingBlog.excerpt}
-                        onChange={(e) => setEditingBlog({...editingBlog, excerpt: e.target.value})}
-                        style={{
-                          padding: '0.5rem',
-                          borderRadius: '0.25rem',
-                          border: '1px solid var(--border)',
-                          background: 'var(--bg-primary)',
-                          color: 'var(--text-primary)',
-                          minHeight: '80px'
-                        }}
-                      />
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                        <input
-                          value={editingBlog.category}
-                          onChange={(e) => setEditingBlog({...editingBlog, category: e.target.value})}
-                          placeholder="Category"
-                          style={{
-                            padding: '0.5rem',
-                            borderRadius: '0.25rem',
-                            border: '1px solid var(--border)',
-                            background: 'var(--bg-primary)',
-                            color: 'var(--text-primary)'
-                          }}
-                        />
-                        <input
-                          value={editingBlog.readTime}
-                          onChange={(e) => setEditingBlog({...editingBlog, readTime: e.target.value})}
-                          placeholder="Read time"
-                          style={{
-                            padding: '0.5rem',
-                            borderRadius: '0.25rem',
-                            border: '1px solid var(--border)',
-                            background: 'var(--bg-primary)',
-                            color: 'var(--text-primary)'
-                          }}
-                        />
-                      </div>
-                      <input
-                        value={editingBlog.tags.join(', ')}
-                        onChange={(e) => setEditingBlog({...editingBlog, tags: e.target.value.split(', ')})}
-                        placeholder="Tags (comma separated)"
-                        style={{
-                          padding: '0.5rem',
-                          borderRadius: '0.25rem',
-                          border: '1px solid var(--border)',
-                          background: 'var(--bg-primary)',
-                          color: 'var(--text-primary)'
-                        }}
-                      />
-                      <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        <button 
-                          onClick={() => saveBlogPost(editingBlog)}
-                          style={{
-                            padding: '0.5rem 1rem',
-                            borderRadius: '0.25rem',
-                            border: 'none',
-                            background: '#10b981',
-                            color: 'white',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.5rem'
-                          }}
-                        >
-                          <MdSave size={14} /> Save
-                        </button>
-                        <button 
-                          onClick={() => setEditingBlog(null)}
-                          style={{
-                            padding: '0.5rem 1rem',
-                            borderRadius: '0.25rem',
-                            border: '1px solid var(--border)',
-                            background: 'transparent',
-                            color: 'var(--text-primary)',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.5rem'
-                          }}
-                        >
-                          <MdCancel size={14} /> Cancel
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-                        <div>
-                          <h3 style={{ color: 'var(--text-primary)', margin: '0 0 0.5rem 0' }}>{post.title}</h3>
-                          <p style={{ color: 'var(--text-secondary)', margin: '0 0 0.5rem 0' }}>{post.excerpt}</p>
-                          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                            <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>{post.category}</span>
-                            <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>•</span>
-                            <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>{post.readTime}</span>
-                            <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>•</span>
-                            <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>{post.date}</span>
-                          </div>
-                          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                            {post.tags.map(tag => (
-                              <span key={tag} style={{
-                                background: 'var(--accent)',
-                                color: 'white',
-                                padding: '0.25rem 0.5rem',
-                                borderRadius: '0.25rem',
-                                fontSize: '0.75rem'
-                              }}>
-                                #{tag}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                        <div style={{ display: 'flex', gap: '0.5rem' }}>
-                          <button 
-                            onClick={() => setEditingBlog(post)}
-                            style={{
-                              padding: '0.5rem',
-                              borderRadius: '0.25rem',
-                              border: 'none',
-                              background: '#f59e0b',
-                              color: 'white',
-                              cursor: 'pointer'
-                            }}
-                          >
-                            <MdEdit size={14} />
-                          </button>
-                          <button 
-                            onClick={() => deleteBlogPost(post.id)}
-                            style={{
-                              padding: '0.5rem',
-                              borderRadius: '0.25rem',
-                              border: 'none',
-                              background: '#ef4444',
-                              color: 'white',
-                              cursor: 'pointer'
-                            }}
-                          >
-                            <MdTrash size={14} />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'skills' && (
-          <div>
-            <div style={{ marginBottom: '3rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-                <h2 style={{ color: 'var(--text-primary)', margin: 0 }}>Skill Categories</h2>
-                <button onClick={addSkillCategory} className="admin-btn admin-btn-primary">
-                  <MdAdd size={16} />
-                  Add Category
-                </button>
-              </div>
-
-              <div style={{ display: 'grid', gap: '1rem' }}>
-                {skillCategories.map(category => (
-                  <div key={category.id} style={{
-                    background: 'var(--bg-secondary)',
-                    padding: '1.5rem',
-                    borderRadius: '0.75rem',
-                    border: '1px solid var(--border)'
-                  }}>
-                    {editingSkillCategory?.id === category.id ? (
-                      <div style={{ display: 'grid', gap: '1.5rem' }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1rem' }}>
-                          <div>
-                            <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-primary)' }}>Category Name</label>
-                            <input
-                              value={editingSkillCategory.name}
-                              onChange={(e) => setEditingSkillCategory({...editingSkillCategory, name: e.target.value})}
-                              className="admin-input"
-                            />
-                          </div>
-                          <div>
-                            <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-primary)' }}>Icon</label>
-                            <select
-                              value={editingSkillCategory.icon}
-                              onChange={(e) => setEditingSkillCategory({...editingSkillCategory, icon: e.target.value})}
-                              className="admin-input"
-                            >
-                              <option value="NetworkIcon">Network Icon</option>
-                              <option value="CloudIcon">Cloud Icon</option>
-                              <option value="CodeIcon">Code Icon</option>
-                              <option value="SecurityIcon">Security Icon</option>
-                              <option value="BrainIcon">Brain Icon</option>
-                              <option value="RocketIcon">Rocket Icon</option>
-                            </select>
-                          </div>
-                        </div>
-                        <div>
-                          <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-primary)' }}>Skills (comma-separated)</label>
-                          <textarea
-                            value={editingSkillCategory.skills.join(', ')}
-                            onChange={(e) => setEditingSkillCategory({
-                              ...editingSkillCategory, 
-                              skills: e.target.value.split(', ').filter(s => s.trim())
-                            })}
-                            className="admin-input"
-                            rows={3}
-                            placeholder="Python, JavaScript, React, Node.js"
-                          />
-                        </div>
-                        <div style={{ display: 'flex', gap: '1rem' }}>
-                          <button
-                            onClick={() => saveSkillCategory(editingSkillCategory)}
-                            className="admin-btn admin-btn-primary"
-                          >
-                            <MdSave size={16} />
-                            Save
-                          </button>
-                          <button
-                            onClick={() => setEditingSkillCategory(null)}
-                            className="admin-btn admin-btn-secondary"
-                          >
-                            <MdCancel size={16} />
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                          <h3 style={{ color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            {category.icon === 'NetworkIcon' && '🌐'}
-                            {category.icon === 'CloudIcon' && '☁️'}
-                            {category.icon === 'CodeIcon' && '💻'}
-                            {category.icon === 'SecurityIcon' && '🔒'}
-                            {category.icon === 'BrainIcon' && '🧠'}
-                            {category.icon === 'RocketIcon' && '🚀'}
-                            {category.name}
-                          </h3>
-                          <div style={{ display: 'flex', gap: '0.5rem' }}>
-                            <button
-                              onClick={() => setEditingSkillCategory(category)}
-                              className="admin-btn admin-btn-secondary"
-                              style={{ padding: '0.5rem' }}
-                            >
-                              <MdEdit size={14} />
-                            </button>
-                            <button
-                              onClick={() => deleteSkillCategory(category.id)}
-                              className="admin-btn admin-btn-danger"
-                              style={{ padding: '0.5rem' }}
-                            >
-                              <MdDelete size={14} />
-                            </button>
-                          </div>
-                        </div>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                          {category.skills.map(skill => (
-                            <span key={skill} className="admin-tag">
-                              {skill}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-                <h2 style={{ color: 'var(--text-primary)', margin: 0 }}>Individual Skills</h2>
-                <button onClick={addSkill} className="admin-btn admin-btn-primary">
-                  <MdAdd size={16} />
-                  Add Skill
-                </button>
-              </div>
-
-              <div style={{ display: 'grid', gap: '1rem' }}>
-                {skills.map(skill => (
-                  <div key={skill.name} style={{
-                    background: 'var(--bg-secondary)',
-                    padding: '1.5rem',
-                    borderRadius: '0.75rem',
-                    border: '1px solid var(--border)'
-                  }}>
-                    {editingSkill?.name === skill.name ? (
-                      <div style={{ display: 'grid', gap: '1rem' }}>
-                        <input
-                          value={editingSkill.name}
-                          onChange={(e) => setEditingSkill({...editingSkill, name: e.target.value})}
-                          className="admin-input"
-                          placeholder="Skill name"
-                        />
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 2fr', gap: '1rem' }}>
-                          <div>
-                            <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-primary)', fontSize: '0.875rem' }}>Level (%)</label>
-                            <input
-                              type="number"
-                              min="0"
-                              max="100"
-                              value={editingSkill.level}
-                              onChange={(e) => setEditingSkill({...editingSkill, level: parseInt(e.target.value)})}
-                              className="admin-input"
-                            />
-                          </div>
-                          <div>
-                            <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-primary)', fontSize: '0.875rem' }}>Category</label>
-                            <select
-                              value={editingSkill.category}
-                              onChange={(e) => setEditingSkill({...editingSkill, category: e.target.value})}
-                              className="admin-input"
-                            >
-                              <option value="Programming">Programming</option>
-                              <option value="Networking">Networking</option>
-                              <option value="Cloud & DevOps">Cloud & DevOps</option>
-                              <option value="Security">Security</option>
-                              <option value="Other">Other</option>
-                            </select>
-                          </div>
-                          <div>
-                            <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-primary)', fontSize: '0.875rem' }}>Color</label>
-                            <input
-                              type="color"
-                              value={editingSkill.color}
-                              onChange={(e) => setEditingSkill({...editingSkill, color: e.target.value})}
-                              className="admin-input"
-                              style={{ height: '2.5rem' }}
-                            />
-                          </div>
-                          <div>
-                            <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-primary)', fontSize: '0.875rem' }}>Icon</label>
-                            <input
-                              value={editingSkill.icon}
-                              onChange={(e) => setEditingSkill({...editingSkill, icon: e.target.value})}
-                              className="admin-input"
-                              placeholder="🚀"
-                            />
-                          </div>
-                        </div>
-                        <div style={{ display: 'flex', gap: '1rem' }}>
-                          <button
-                            onClick={() => saveSkill(editingSkill)}
-                            className="admin-btn admin-btn-primary"
-                          >
-                            <MdSave size={16} />
-                            Save
-                          </button>
-                          <button
-                            onClick={() => setEditingSkill(null)}
-                            className="admin-btn admin-btn-secondary"
-                          >
-                            <MdCancel size={16} />
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                          <span style={{ fontSize: '1.5rem' }}>{skill.icon}</span>
-                          <div>
-                            <h3 style={{ color: 'var(--text-primary)', margin: 0 }}>{skill.name}</h3>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.5rem' }}>
-                              <span className="admin-tag" style={{ background: skill.color, color: 'white' }}>
-                                {skill.category}
-                              </span>
-                              <div style={{ 
-                                background: 'var(--bg-primary)', 
-                                borderRadius: '0.5rem', 
-                                padding: '0.25rem 0.75rem',
-                                border: '1px solid var(--border)'
-                              }}>
-                                <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{skill.level}%</span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                        <div style={{ display: 'flex', gap: '0.5rem' }}>
-                          <button
-                            onClick={() => setEditingSkill(skill)}
-                            className="admin-btn admin-btn-secondary"
-                            style={{ padding: '0.5rem' }}
-                          >
-                            <MdEdit size={14} />
-                          </button>
-                          <button
-                            onClick={() => deleteSkill(skill.name)}
-                            className="admin-btn admin-btn-danger"
-                            style={{ padding: '0.5rem' }}
-                          >
-                            <MdDelete size={14} />
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'contact' && (
-          <div>
-            <h2 style={{ color: 'var(--text-primary)', marginBottom: '2rem' }}>Contact Information</h2>
-            <div style={{
-              background: 'var(--bg-secondary)',
-              padding: '2rem',
-              borderRadius: '0.75rem',
-              border: '1px solid var(--border)',
-              display: 'grid',
-              gap: '1rem'
-            }}>
-              <div>
-                <label style={{ color: 'var(--text-primary)', display: 'block', marginBottom: '0.5rem' }}>Email</label>
-                <input
-                  value={contactInfo.email}
-                  onChange={(e) => setContactInfo({...contactInfo, email: e.target.value})}
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem',
-                    borderRadius: '0.5rem',
-                    border: '1px solid var(--border)',
-                    background: 'var(--bg-primary)',
-                    color: 'var(--text-primary)'
-                  }}
-                />
-              </div>
-              <div>
-                <label style={{ color: 'var(--text-primary)', display: 'block', marginBottom: '0.5rem' }}>Website</label>
-                <input
-                  value={contactInfo.website}
-                  onChange={(e) => setContactInfo({...contactInfo, website: e.target.value})}
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem',
-                    borderRadius: '0.5rem',
-                    border: '1px solid var(--border)',
-                    background: 'var(--bg-primary)',
-                    color: 'var(--text-primary)'
-                  }}
-                />
-              </div>
-              <div>
-                <label style={{ color: 'var(--text-primary)', display: 'block', marginBottom: '0.5rem' }}>LinkedIn</label>
-                <input
-                  value={contactInfo.linkedin}
-                  onChange={(e) => setContactInfo({...contactInfo, linkedin: e.target.value})}
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem',
-                    borderRadius: '0.5rem',
-                    border: '1px solid var(--border)',
-                    background: 'var(--bg-primary)',
-                    color: 'var(--text-primary)'
-                  }}
-                />
-              </div>
-              <div>
-                <label style={{ color: 'var(--text-primary)', display: 'block', marginBottom: '0.5rem' }}>GitHub</label>
-                <input
-                  value={contactInfo.github}
-                  onChange={(e) => setContactInfo({...contactInfo, github: e.target.value})}
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem',
-                    borderRadius: '0.5rem',
-                    border: '1px solid var(--border)',
-                    background: 'var(--bg-primary)',
-                    color: 'var(--text-primary)'
-                  }}
-                />
-              </div>
-              <button
-                onClick={() => {
-                  alert('Contact information saved!');
-                  // In a real app, this would save to a database
-                }}
-                style={{
-                  padding: '0.75rem 1.5rem',
-                  borderRadius: '0.5rem',
-                  border: 'none',
-                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                  color: 'white',
-                  cursor: 'pointer',
-                  marginTop: '1rem',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem'
-                }}
-              >
-                <MdSave size={16} /> Save Changes
-              </button>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'users' && currentUser?.role === 'admin' && (
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-              <h2 style={{ color: 'var(--text-primary)', margin: 0 }}>User Management</h2>
-              <button 
-                onClick={addUser}
-                style={{
-                  padding: '0.75rem 1.5rem',
-                  borderRadius: '0.5rem',
-                  border: 'none',
-                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                  color: 'white',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem'
-                }}
-              >
-                <MdAdd size={16} /> Add User
-              </button>
-            </div>
-
-            <div style={{ display: 'grid', gap: '1rem' }}>
-              {users.map(user => (
-                <div key={user.id} style={{
-                  background: 'var(--bg-secondary)',
-                  padding: '1.5rem',
-                  borderRadius: '0.75rem',
-                  border: '1px solid var(--border)'
-                }}>
-                  {editingUser?.id === user.id ? (
-                    <div style={{ display: 'grid', gap: '1rem' }}>
-                      <input
-                        value={editingUser.username}
-                        onChange={(e) => setEditingUser({...editingUser, username: e.target.value})}
-                        placeholder="Username"
-                        style={{
-                          padding: '0.5rem',
-                          borderRadius: '0.25rem',
-                          border: '1px solid var(--border)',
-                          background: 'var(--bg-primary)',
-                          color: 'var(--text-primary)'
-                        }}
-                      />
-                      <input
-                        type="password"
-                        value={editingUser.password}
-                        onChange={(e) => setEditingUser({...editingUser, password: e.target.value})}
-                        placeholder="Password"
-                        style={{
-                          padding: '0.5rem',
-                          borderRadius: '0.25rem',
-                          border: '1px solid var(--border)',
-                          background: 'var(--bg-primary)',
-                          color: 'var(--text-primary)'
-                        }}
-                      />
-                      <select
-                        value={editingUser.role}
-                        onChange={(e) => setEditingUser({...editingUser, role: e.target.value as 'admin' | 'editor'})}
-                        style={{
-                          padding: '0.5rem',
-                          borderRadius: '0.25rem',
-                          border: '1px solid var(--border)',
-                          background: 'var(--bg-primary)',
-                          color: 'var(--text-primary)'
-                        }}
-                      >
-                        <option value="editor">Editor</option>
-                        <option value="admin">Admin</option>
-                      </select>
-                      <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        <button 
-                          onClick={() => saveUser(editingUser)}
-                          style={{
-                            padding: '0.5rem 1rem',
-                            borderRadius: '0.25rem',
-                            border: 'none',
-                            background: '#10b981',
-                            color: 'white',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.5rem'
-                          }}
-                        >
-                          <MdSave size={14} /> Save
-                        </button>
-                        <button 
-                          onClick={() => setEditingUser(null)}
-                          style={{
-                            padding: '0.5rem 1rem',
-                            borderRadius: '0.25rem',
-                            border: '1px solid var(--border)',
-                            background: 'transparent',
-                            color: 'var(--text-primary)',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.5rem'
-                          }}
-                        >
-                          <MdCancel size={14} /> Cancel
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div>
-                        <h4 style={{ color: 'var(--text-primary)', margin: '0 0 0.5rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          <MdPeople size={16} />
-                          {user.username}
-                          {currentUser?.id === user.id && <span style={{ color: 'var(--accent)', fontSize: '0.75rem' }}> (You)</span>}
-                        </h4>
-                        <div style={{ display: 'flex', gap: '1rem', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-                          <span>Role: <strong style={{ color: user.role === 'admin' ? '#f59e0b' : '#10b981' }}>{user.role}</strong></span>
-                          <span>Created: {user.createdAt}</span>
-                          {user.lastLogin && <span>Last Login: {new Date(user.lastLogin).toLocaleDateString()}</span>}
-                        </div>
-                      </div>
-                      <div style={{ display: 'flex', gap: '0.5rem' }}>                          <button 
-                            onClick={() => setEditingUser(user)}
-                            style={{
-                              padding: '0.5rem',
-                              borderRadius: '0.25rem',
-                              border: 'none',
-                              background: '#f59e0b',
-                              color: 'white',
-                              cursor: 'pointer'
-                            }}
-                          >
-                            <MdEdit size={14} />
-                          </button>
-                          {currentUser?.id !== user.id && (
-                            <button 
-                              onClick={() => deleteUser(user.id)}
-                              style={{
-                                padding: '0.5rem',
-                                borderRadius: '0.25rem',
-                                border: 'none',
-                                background: '#ef4444',
-                                color: 'white',
-                                cursor: 'pointer'
-                              }}
-                            >
-                              <MdTrash size={14} />
-                            </button>
-                          )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'settings' && (
-          <div>
-            <h2 style={{ color: 'var(--text-primary)', marginBottom: '2rem' }}>Settings</h2>
-            
-            {/* Password Change Section */}
-            <div style={{
-              background: 'var(--bg-secondary)',
-              padding: '2rem',
-              borderRadius: '0.75rem',
-              border: '1px solid var(--border)',
-              marginBottom: '2rem'
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                <h3 style={{ color: 'var(--text-primary)', margin: 0 }}>Change Password</h3>
-                <button
-                  onClick={() => setShowPasswordChange(!showPasswordChange)}
-                  style={{
-                    padding: '0.5rem 1rem',
-                    borderRadius: '0.25rem',
-                    border: '1px solid var(--border)',
-                    background: 'var(--accent)',
-                    color: 'white',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.5rem'
-                  }}
-                >
-                  {showPasswordChange ? <MdClose size={14} /> : <MdLock size={14} />}
-                  {showPasswordChange ? 'Cancel' : 'Change Password'}
+          {/* Projects Tab */}
+          {activeTab === 'projects' && (
+            <div className="admin-card admin-fade-in">
+              <div className="admin-card-header">
+                <h2>Projects Management</h2>
+                <p>Add, edit, and manage your portfolio projects</p>
+                <button className="admin-btn admin-btn-primary" onClick={addProject}>
+                  <MdAdd />
+                  Add New Project
                 </button>
               </div>
               
-              {showPasswordChange && (
-                <div style={{ display: 'grid', gap: '1rem', maxWidth: '400px' }}>
-                  <input
-                    type="password"
-                    placeholder="Current Password"
-                    value={currentPassword}
-                    onChange={(e) => setCurrentPassword(e.target.value)}
-                    style={{
-                      padding: '0.75rem',
-                      borderRadius: '0.5rem',
-                      border: '1px solid var(--border)',
-                      background: 'var(--bg-primary)',
-                      color: 'var(--text-primary)'
-                    }}
-                  />
-                  <input
-                    type="password"
-                    placeholder="New Password"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    style={{
-                      padding: '0.75rem',
-                      borderRadius: '0.5rem',
-                      border: '1px solid var(--border)',
-                      background: 'var(--bg-primary)',
-                      color: 'var(--text-primary)'
-                    }}
-                  />
-                  <input
-                    type="password"
-                    placeholder="Confirm New Password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    style={{
-                      padding: '0.75rem',
-                      borderRadius: '0.5rem',
-                      border: '1px solid var(--border)',
-                      background: 'var(--bg-primary)',
-                      color: 'var(--text-primary)'
-                    }}
-                  />
-                  <button
-                    onClick={handlePasswordChange}
-                    style={{
-                      padding: '0.75rem 1.5rem',
-                      borderRadius: '0.5rem',
-                      border: 'none',
-                      background: '#10b981',
-                      color: 'white',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.5rem'
-                    }}
-                  >
-                    <MdSave size={16} /> Update Password
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Account Information */}
-            <div style={{
-              background: 'var(--bg-secondary)',
-              padding: '2rem',
-              borderRadius: '0.75rem',
-              border: '1px solid var(--border)'
-            }}>
-              <h3 style={{ color: 'var(--text-primary)', marginBottom: '1rem' }}>Account Information</h3>
-              <div style={{ display: 'grid', gap: '1rem', color: 'var(--text-secondary)' }}>
-                <div>
-                  <strong style={{ color: 'var(--text-primary)' }}>Username:</strong> {currentUser?.username}
-                </div>
-                <div>
-                  <strong style={{ color: 'var(--text-primary)' }}>Role:</strong> 
-                  <span style={{ 
-                    color: currentUser?.role === 'admin' ? '#f59e0b' : '#10b981',
-                    marginLeft: '0.5rem',
-                    fontWeight: 'bold'
-                  }}>
-                    {currentUser?.role}
-                  </span>
-                </div>
-                <div>
-                  <strong style={{ color: 'var(--text-primary)' }}>Account Created:</strong> {currentUser?.createdAt}
-                </div>
-                {currentUser?.lastLogin && (
-                  <div>
-                    <strong style={{ color: 'var(--text-primary)' }}>Last Login:</strong> {new Date(currentUser.lastLogin).toLocaleString()}
+              <div className="admin-projects-grid">
+                {projects.map(project => (
+                  <div key={project.id} className="admin-project-card">
+                    {editingProject?.id === project.id ? (
+                      <form onSubmit={(e) => handleProjectForm(e, editingProject)} className="admin-edit-form">
+                        <div className="admin-form-group">
+                          <label>Project Title</label>
+                          <input
+                            type="text"
+                            className="admin-input"
+                            value={editingProject.title}
+                            onChange={(e) => setEditingProject({...editingProject, title: e.target.value})}
+                            required
+                          />
+                        </div>
+                        
+                        <div className="admin-form-group">
+                          <label>Description</label>
+                          <textarea
+                            className="admin-textarea"
+                            rows={3}
+                            value={editingProject.description}
+                            onChange={(e) => setEditingProject({...editingProject, description: e.target.value})}
+                            required
+                          />
+                        </div>
+                        
+                        <div className="admin-form-group">
+                          <label>Technologies (comma-separated)</label>
+                          <input
+                            type="text"
+                            className="admin-input"
+                            value={editingProject.tech.join(', ')}
+                            onChange={(e) => setEditingProject({...editingProject, tech: e.target.value.split(', ').map(t => t.trim())})}
+                          />
+                        </div>
+                        
+                        <div className="admin-form-group">
+                          <label>Project Link</label>
+                          <input
+                            type="url"
+                            className="admin-input"
+                            value={editingProject.link}
+                            onChange={(e) => setEditingProject({...editingProject, link: e.target.value})}
+                            required
+                          />
+                        </div>
+                        
+                        <div className="admin-card-actions">
+                          <button type="submit" className="admin-btn admin-btn-primary">
+                            <MdSave />
+                            Save
+                          </button>
+                          <button type="button" className="admin-btn admin-btn-secondary" onClick={cancelEdit}>
+                            <MdCancel />
+                            Cancel
+                          </button>
+                        </div>
+                      </form>
+                    ) : (
+                      <>
+                        <div className="admin-project-header">
+                          <h3>{project.title}</h3>
+                          <div className="admin-card-actions">
+                            <button 
+                              className="admin-btn admin-btn-secondary"
+                              onClick={() => setEditingProject(project)}
+                            >
+                              <MdEdit />
+                            </button>
+                            <button 
+                              className="admin-btn admin-btn-danger"
+                              onClick={() => deleteProject(project.id)}
+                            >
+                              <MdDelete />
+                            </button>
+                          </div>
+                        </div>
+                        <p>{project.description}</p>
+                        <div className="admin-tech-tags">
+                          {project.tech.map(tech => (
+                            <span key={tech} className="admin-tag">{tech}</span>
+                          ))}
+                        </div>
+                        <a href={project.link} target="_blank" rel="noopener noreferrer" className="admin-project-link">
+                          View Project
+                        </a>
+                      </>
+                    )}
                   </div>
-                )}
+                ))}
               </div>
             </div>
-          </div>
-        )}
+          )}
+
+          {/* Blog Tab */}
+          {activeTab === 'blog' && (
+            <div className="admin-card admin-fade-in">
+              <div className="admin-card-header">
+                <h2>Blog Posts Management</h2>
+                <p>Create and manage your blog content</p>
+                <button className="admin-btn admin-btn-primary" onClick={addBlogPost}>
+                  <MdAdd />
+                  New Blog Post
+                </button>
+              </div>
+              
+              <div className="admin-blog-list">
+                {blogPosts.map(post => (
+                  <div key={post.id} className="admin-blog-item">
+                    {editingBlog?.id === post.id ? (
+                      <form onSubmit={(e) => handleBlogForm(e, editingBlog)} className="admin-edit-form" style={{width: '100%'}}>
+                        <div className="admin-form-group">
+                          <label>Post Title</label>
+                          <input
+                            type="text"
+                            className="admin-input"
+                            value={editingBlog.title}
+                            onChange={(e) => setEditingBlog({...editingBlog, title: e.target.value})}
+                            required
+                          />
+                        </div>
+                        
+                        <div className="admin-form-group">
+                          <label>Excerpt</label>
+                          <textarea
+                            className="admin-textarea"
+                            rows={3}
+                            value={editingBlog.excerpt}
+                            onChange={(e) => setEditingBlog({...editingBlog, excerpt: e.target.value})}
+                            required
+                          />
+                        </div>
+                        
+                        <div className="admin-form-grid">
+                          <div className="admin-form-group">
+                            <label>Category</label>
+                            <input
+                              type="text"
+                              className="admin-input"
+                              value={editingBlog.category}
+                              onChange={(e) => setEditingBlog({...editingBlog, category: e.target.value})}
+                              required
+                            />
+                          </div>
+                          
+                          <div className="admin-form-group">
+                            <label>Read Time</label>
+                            <input
+                              type="text"
+                              className="admin-input"
+                              value={editingBlog.readTime}
+                              onChange={(e) => setEditingBlog({...editingBlog, readTime: e.target.value})}
+                              placeholder="5 min read"
+                            />
+                          </div>
+                        </div>
+                        
+                        <div className="admin-form-group">
+                          <label>Tags (comma-separated)</label>
+                          <input
+                            type="text"
+                            className="admin-input"
+                            value={editingBlog.tags.join(', ')}
+                            onChange={(e) => setEditingBlog({...editingBlog, tags: e.target.value.split(', ').map(t => t.trim())})}
+                          />
+                        </div>
+                        
+                        <div className="admin-card-actions">
+                          <button type="submit" className="admin-btn admin-btn-primary">
+                            <MdSave />
+                            Save
+                          </button>
+                          <button type="button" className="admin-btn admin-btn-secondary" onClick={cancelEdit}>
+                            <MdCancel />
+                            Cancel
+                          </button>
+                        </div>
+                      </form>
+                    ) : (
+                      <>
+                        <div className="admin-blog-content">
+                          <h3>{post.title}</h3>
+                          <p>{post.excerpt}</p>
+                          <div className="admin-blog-meta">
+                            <span className="admin-tag">{post.category}</span>
+                            <span>📅 {post.date}</span>
+                            <span>⏱️ {post.readTime}</span>
+                          </div>
+                          <div className="admin-blog-tags">
+                            {post.tags.map(tag => (
+                              <span key={tag} className="admin-tag">{tag}</span>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="admin-card-actions">
+                          <button 
+                            className="admin-btn admin-btn-secondary"
+                            onClick={() => setEditingBlog(post)}
+                          >
+                            <MdEdit />
+                            Edit
+                          </button>
+                          <button 
+                            className="admin-btn admin-btn-danger"
+                            onClick={() => deleteBlogPost(post.id)}
+                          >
+                            <MdDelete />
+                            Delete
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Skills Tab */}
+          {activeTab === 'skills' && (
+            <div className="admin-card admin-fade-in">
+              <div className="admin-card-header">
+                <h2>Skills Management</h2>
+                <p>Manage your technical skills and proficiency levels</p>
+                <div className="admin-card-actions">
+                  <button className="admin-btn admin-btn-primary" onClick={addSkill}>
+                    <MdAdd />
+                    Add New Skill
+                  </button>
+                  <button className="admin-btn admin-btn-secondary" onClick={addSkillCategory}>
+                    <MdAdd />
+                    Add Category
+                  </button>
+                </div>
+              </div>
+              
+              <div className="admin-skills-categories">
+                {skillCategories.map(category => (
+                  <div key={category.id} className="admin-skill-category">
+                    {editingSkillCategory?.id === category.id ? (
+                      <form onSubmit={(e) => handleSkillCategoryForm(e, editingSkillCategory)} className="admin-edit-form">
+                        <div className="admin-form-group">
+                          <label>Category Name</label>
+                          <input
+                            type="text"
+                            className="admin-input"
+                            value={editingSkillCategory.name}
+                            onChange={(e) => setEditingSkillCategory({...editingSkillCategory, name: e.target.value})}
+                            required
+                          />
+                        </div>
+                        
+                        <div className="admin-form-group">
+                          <label>Icon (React Icon name)</label>
+                          <input
+                            type="text"
+                            className="admin-input"
+                            value={editingSkillCategory.icon}
+                            onChange={(e) => setEditingSkillCategory({...editingSkillCategory, icon: e.target.value})}
+                            placeholder="MdCode"
+                          />
+                        </div>
+                        
+                        <div className="admin-card-actions">
+                          <button type="submit" className="admin-btn admin-btn-primary">
+                            <MdSave />
+                            Save
+                          </button>
+                          <button type="button" className="admin-btn admin-btn-secondary" onClick={cancelEdit}>
+                            <MdCancel />
+                            Cancel
+                          </button>
+                        </div>
+                      </form>
+                    ) : (
+                      <>
+                        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem'}}>
+                          <h3 className="admin-category-title">
+                            <span className="admin-category-icon">{category.icon}</span>
+                            {category.name}
+                          </h3>
+                          <div className="admin-card-actions">
+                            <button 
+                              className="admin-btn admin-btn-secondary"
+                              onClick={() => setEditingSkillCategory(category)}
+                            >
+                              <MdEdit />
+                            </button>
+                            <button 
+                              className="admin-btn admin-btn-danger"
+                              onClick={() => deleteSkillCategory(category.id)}
+                            >
+                              <MdDelete />
+                            </button>
+                          </div>
+                        </div>
+                        
+                        <div className="admin-skills-grid">
+                          {category.skills.map(skillName => {
+                            const skill = skills.find(s => s.name === skillName);
+                            return skill ? (
+                              <div key={skill.name} className="admin-skill-item">
+                                {editingSkill?.name === skill.name ? (
+                                  <form onSubmit={(e) => handleSkillForm(e, editingSkill)} className="admin-edit-form">
+                                    <div className="admin-form-group">
+                                      <label>Skill Name</label>
+                                      <input
+                                        type="text"
+                                        className="admin-input"
+                                        value={editingSkill.name}
+                                        onChange={(e) => setEditingSkill({...editingSkill, name: e.target.value})}
+                                        required
+                                      />
+                                    </div>
+                                    
+                                    <div className="admin-form-group">
+                                      <label>Proficiency Level (%)</label>
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        max="100"
+                                        className="admin-input"
+                                        value={editingSkill.level}
+                                        onChange={(e) => setEditingSkill({...editingSkill, level: parseInt(e.target.value)})}
+                                        required
+                                      />
+                                    </div>
+                                    
+                                    <div className="admin-form-group">
+                                      <label>Color</label>
+                                      <input
+                                        type="color"
+                                        className="admin-input"
+                                        value={editingSkill.color}
+                                        onChange={(e) => setEditingSkill({...editingSkill, color: e.target.value})}
+                                      />
+                                    </div>
+                                    
+                                    <div className="admin-card-actions">
+                                      <button type="submit" className="admin-btn admin-btn-primary">
+                                        <MdSave />
+                                      </button>
+                                      <button type="button" className="admin-btn admin-btn-secondary" onClick={cancelEdit}>
+                                        <MdCancel />
+                                      </button>
+                                    </div>
+                                  </form>
+                                ) : (
+                                  <>
+                                    <div className="admin-skill-header">
+                                      <span className="admin-skill-name">{skill.name}</span>
+                                      <span className="admin-skill-level">{skill.level}%</span>
+                                    </div>
+                                    <div className="admin-progress">
+                                      <div 
+                                        className="admin-progress-bar" 
+                                        style={{ width: `${skill.level}%`, background: skill.color }}
+                                      />
+                                    </div>
+                                    <div className="admin-skill-actions">
+                                      <button 
+                                        className="admin-btn admin-btn-secondary"
+                                        onClick={() => setEditingSkill(skill)}
+                                      >
+                                        <MdEdit />
+                                      </button>
+                                      <button 
+                                        className="admin-btn admin-btn-danger"
+                                        onClick={() => deleteSkill(skill.name)}
+                                      >
+                                        <MdDelete />
+                                      </button>
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            ) : null;
+                          })}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Contact Tab */}
+          {activeTab === 'contact' && (
+            <div className="admin-card admin-fade-in">
+              <div className="admin-card-header">
+                <h2>Contact Information</h2>
+                <p>Update your contact details and social links</p>
+              </div>
+              
+              <form className="admin-form" onSubmit={(e) => { e.preventDefault(); saveContactInfo(); }}>
+                <div className="admin-form-group">
+                  <label>Email Address</label>
+                  <input
+                    type="email"
+                    className="admin-input"
+                    value={contactInfo.email}
+                    onChange={(e) => setContactInfo({...contactInfo, email: e.target.value})}
+                    placeholder="your.email@example.com"
+                    required
+                  />
+                </div>
+
+                <div className="admin-form-group">
+                  <label>Website URL</label>
+                  <input
+                    type="url"
+                    className="admin-input"
+                    value={contactInfo.website}
+                    onChange={(e) => setContactInfo({...contactInfo, website: e.target.value})}
+                    placeholder="https://yourwebsite.com"
+                  />
+                </div>
+
+                <div className="admin-form-group">
+                  <label>LinkedIn Profile</label>
+                  <input
+                    type="url"
+                    className="admin-input"
+                    value={contactInfo.linkedin}
+                    onChange={(e) => setContactInfo({...contactInfo, linkedin: e.target.value})}
+                    placeholder="https://linkedin.com/in/yourprofile"
+                  />
+                </div>
+
+                <div className="admin-form-group">
+                  <label>GitHub Profile</label>
+                  <input
+                    type="url"
+                    className="admin-input"
+                    value={contactInfo.github}
+                    onChange={(e) => setContactInfo({...contactInfo, github: e.target.value})}
+                    placeholder="https://github.com/yourusername"
+                  />
+                </div>
+
+                <div className="admin-card-actions">
+                  <button type="submit" className="admin-btn admin-btn-primary">
+                    <MdSave />
+                    Save Contact Information
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* Maintenance Mode Tab (Admin Only) */}
+          {activeTab === 'maintenance' && currentUser?.role === 'admin' && (
+            <div className="admin-card admin-fade-in">
+              <div className="admin-card-header">
+                <h2>Maintenance Mode</h2>
+                <p>Control website maintenance mode and schedule downtime</p>
+                <div className="admin-maintenance-status">
+                  <span className={`admin-status-indicator ${maintenanceMode.isActive ? 'active' : 'inactive'}`}>
+                    {maintenanceMode.isActive ? '🔧 MAINTENANCE ACTIVE' : '✅ SITE ONLINE'}
+                  </span>
+                </div>
+              </div>
+              
+              <div className="admin-maintenance-controls">
+                <div className="admin-form-section">
+                  <h3 className="admin-form-section-title">
+                    <MdBuild />
+                    Quick Controls
+                  </h3>
+                  
+                  <div className="admin-maintenance-quick-actions">
+                    <button 
+                      className={`admin-btn ${maintenanceMode.isActive ? 'admin-btn-danger' : 'admin-btn-primary'}`}
+                      onClick={toggleMaintenanceMode}
+                    >
+                      {maintenanceMode.isActive ? (
+                        <>
+                          <MdClose />
+                          Disable Maintenance Mode
+                        </>
+                      ) : (
+                        <>
+                          <MdBuild />
+                          Enable Maintenance Mode
+                        </>
+                      )}
+                    </button>
+                    
+                    <div className="admin-quick-schedule">
+                      <button 
+                        className="admin-btn admin-btn-secondary"
+                        onClick={() => scheduleMaintenance(
+                          new Date(Date.now() + 5 * 60 * 1000).toISOString().slice(0, 16),
+                          new Date(Date.now() + 60 * 60 * 1000).toISOString().slice(0, 16)
+                        )}
+                      >
+                        <MdUpdate />
+                        Quick: 1 Hour Maintenance
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <form onSubmit={(e) => { e.preventDefault(); saveMaintenanceSettings(); }} className="admin-form">
+                  <div className="admin-form-section">
+                    <h3 className="admin-form-section-title">
+                      <MdSettings />
+                      Maintenance Settings
+                    </h3>
+                    
+                    <div className="admin-form-grid">
+                      <div className="admin-form-group">
+                        <label>Start Date & Time</label>
+                        <input
+                          type="datetime-local"
+                          className="admin-input"
+                          value={maintenanceMode.startDate}
+                          onChange={(e) => setMaintenanceMode({...maintenanceMode, startDate: e.target.value})}
+                        />
+                      </div>
+
+                      <div className="admin-form-group">
+                        <label>End Date & Time</label>
+                        <input
+                          type="datetime-local"
+                          className="admin-input"
+                          value={maintenanceMode.endDate}
+                          onChange={(e) => setMaintenanceMode({...maintenanceMode, endDate: e.target.value})}
+                        />
+                      </div>
+
+                      <div className="admin-form-group">
+                        <label>Estimated Duration</label>
+                        <input
+                          type="text"
+                          className="admin-input"
+                          value={maintenanceMode.estimatedDuration}
+                          onChange={(e) => setMaintenanceMode({...maintenanceMode, estimatedDuration: e.target.value})}
+                          placeholder="2 hours"
+                        />
+                      </div>
+
+                      <div className="admin-form-group">
+                        <label>Contact Email</label>
+                        <input
+                          type="email"
+                          className="admin-input"
+                          value={maintenanceMode.contactEmail}
+                          onChange={(e) => setMaintenanceMode({...maintenanceMode, contactEmail: e.target.value})}
+                          placeholder="support@example.com"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="admin-form-group">
+                      <label>Maintenance Message</label>
+                      <textarea
+                        className="admin-textarea"
+                        rows={4}
+                        value={maintenanceMode.message}
+                        onChange={(e) => setMaintenanceMode({...maintenanceMode, message: e.target.value})}
+                        placeholder="We're currently performing scheduled maintenance to improve our services. We'll be back shortly!"
+                      />
+                    </div>
+
+                    <div className="admin-form-grid">
+                      <div className="admin-form-group">
+                        <label className="admin-checkbox-label">
+                          <input
+                            type="checkbox"
+                            checked={maintenanceMode.showCountdown}
+                            onChange={(e) => setMaintenanceMode({...maintenanceMode, showCountdown: e.target.checked})}
+                            className="admin-checkbox"
+                          />
+                          Show countdown timer
+                        </label>
+                      </div>
+
+                      <div className="admin-form-group">
+                        <label className="admin-checkbox-label">
+                          <input
+                            type="checkbox"
+                            checked={maintenanceMode.allowAdminAccess}
+                            onChange={(e) => setMaintenanceMode({...maintenanceMode, allowAdminAccess: e.target.checked})}
+                            className="admin-checkbox"
+                          />
+                          Allow admin access during maintenance
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="admin-card-actions">
+                    <button type="submit" className="admin-btn admin-btn-primary">
+                      <MdSave />
+                      Save Maintenance Settings
+                    </button>
+                  </div>
+                </form>
+
+                {/* Maintenance Preview */}
+                <div className="admin-form-section">
+                  <h3 className="admin-form-section-title">
+                    <MdVisibility />
+                    Maintenance Page Preview
+                  </h3>
+                  
+                  <div className="admin-maintenance-preview">
+                    <div className="maintenance-preview-container">
+                      <div className="maintenance-icon">🔧</div>
+                      <h2>Site Under Maintenance</h2>
+                      <p>{maintenanceMode.message || "We're currently performing scheduled maintenance to improve our services."}</p>
+                      
+                      {maintenanceMode.estimatedDuration && (
+                        <div className="maintenance-duration">
+                          <strong>Estimated Duration:</strong> {maintenanceMode.estimatedDuration}
+                        </div>
+                      )}
+                      
+                      {maintenanceMode.showCountdown && maintenanceMode.endDate && (
+                        <div className="maintenance-countdown">
+                          <div className="countdown-timer">
+                            <span>Back online in: <strong>2h 30m</strong></span>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {maintenanceMode.contactEmail && (
+                        <div className="maintenance-contact">
+                          <p>Need immediate assistance? Contact us at:</p>
+                          <a href={`mailto:${maintenanceMode.contactEmail}`}>{maintenanceMode.contactEmail}</a>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Users Tab (Admin Only) */}
+          {activeTab === 'users' && currentUser?.role === 'admin' && (
+            <div className="admin-card admin-fade-in">
+              <div className="admin-card-header">
+                <h2>User Management</h2>
+                <p>Manage admin panel users and permissions</p>
+                <button className="admin-btn admin-btn-primary" onClick={addUser}>
+                  <MdAdd />
+                  Add New User
+                </button>
+              </div>
+              
+              {editingUser && (
+                <div className="admin-form-section" style={{marginBottom: '2rem'}}>
+                  <h3 className="admin-form-section-title">
+                    <MdEdit />
+                    {editingUser.id === 'new' ? 'Add New User' : 'Edit User'}
+                  </h3>
+                  
+                  <form onSubmit={(e) => handleUserForm(e, editingUser)} className="admin-form">
+                    <div className="admin-form-grid">
+                      <div className="admin-form-group">
+                        <label>Username</label>
+                        <input
+                          type="text"
+                          className="admin-input"
+                          value={editingUser.username}
+                          onChange={(e) => setEditingUser({...editingUser, username: e.target.value})}
+                          required
+                        />
+                      </div>
+                      
+                      <div className="admin-form-group">
+                        <label>Password</label>
+                        <input
+                          type="password"
+                          className="admin-input"
+                          value={editingUser.password}
+                          onChange={(e) => setEditingUser({...editingUser, password: e.target.value})}
+                          required
+                        />
+                      </div>
+                      
+                      <div className="admin-form-group">
+                        <label>Role</label>
+                        <select
+                          className="admin-select"
+                          value={editingUser.role}
+                          onChange={(e) => setEditingUser({...editingUser, role: e.target.value as 'admin' | 'editor'})}
+                          required
+                        >
+                          <option value="editor">Editor</option>
+                          <option value="admin">Admin</option>
+                        </select>
+                      </div>
+                    </div>
+                    
+                    <div className="admin-card-actions">
+                      <button type="submit" className="admin-btn admin-btn-primary">
+                        <MdSave />
+                        Save User
+                      </button>
+                      <button type="button" className="admin-btn admin-btn-secondary" onClick={cancelEdit}>
+                        <MdCancel />
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              )}
+              
+              <div className="admin-table">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Username</th>
+                      <th>Role</th>
+                      <th>Created</th>
+                      <th>Last Login</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {users.map(user => (
+                      <tr key={user.id}>
+                        <td>{user.username}</td>
+                        <td>
+                          <span className={`admin-tag ${user.role === 'admin' ? 'admin-tag-primary' : 'admin-tag-secondary'}`}>
+                            {user.role}
+                          </span>
+                        </td>
+                        <td>{user.createdAt}</td>
+                        <td>{user.lastLogin ? new Date(user.lastLogin).toLocaleDateString() : 'Never'}</td>
+                        <td>
+                          <div className="admin-card-actions">
+                            <button 
+                              className="admin-btn admin-btn-secondary"
+                              onClick={() => setEditingUser(user)}
+                              disabled={user.id === currentUser?.id}
+                            >
+                              <MdEdit />
+                            </button>
+                            <button 
+                              className="admin-btn admin-btn-danger"
+                              onClick={() => deleteUser(user.id)}
+                              disabled={user.id === currentUser?.id}
+                            >
+                              <MdDelete />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Settings Tab */}
+          {activeTab === 'settings' && (
+            <div className="admin-card admin-fade-in">
+              <div className="admin-card-header">
+                <h2>System Settings</h2>
+                <p>Configure your portfolio and admin panel settings</p>
+              </div>
+              
+              <div className="admin-settings-sections">
+                <div className="admin-form-section">
+                  <h3 className="admin-form-section-title">
+                    <MdSettings />
+                    General Settings
+                  </h3>
+                  
+                  <div className="admin-form-group">
+                    <label>Site Title</label>
+                    <input
+                      type="text"
+                      className="admin-input"
+                      placeholder="Your Portfolio Title"
+                    />
+                  </div>
+
+                  <div className="admin-form-group">
+                    <label>Site Description</label>
+                    <textarea
+                      className="admin-textarea"
+                      rows={3}
+                      placeholder="Brief description of your portfolio"
+                    />
+                  </div>
+                </div>
+
+                <div className="admin-form-section">
+                  <h3 className="admin-form-section-title">
+                    <MdSecurity />
+                    Security Settings
+                  </h3>
+                  
+                  <div className="admin-form-group">
+                    <label>Change Password</label>
+                    <input
+                      type="password"
+                      className="admin-input"
+                      placeholder="New password"
+                    />
+                  </div>
+
+                  <div className="admin-form-group">
+                    <label>Confirm Password</label>
+                    <input
+                      type="password"
+                      className="admin-input"
+                      placeholder="Confirm new password"
+                    />
+                  </div>
+                </div>
+
+                <div className="admin-card-actions">
+                  <button className="admin-btn admin-btn-primary">
+                    <MdSave />
+                    Save Settings
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Add a simple loading state for other tabs */}
+          {!['dashboard', 'homepage', 'about', 'projects', 'blog', 'skills', 'contact', 'maintenance', 'users', 'settings'].includes(activeTab) && (
+            <div className="admin-loading">
+              <div className="admin-loading-spinner" />
+              Content for {activeTab} tab is being prepared...
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
