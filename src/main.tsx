@@ -6,7 +6,9 @@ import './index.css';
 
 // Handle GitHub Pages SPA routing
 const redirectPath = sessionStorage.getItem('redirectPath');
+console.log('Checking for redirectPath:', redirectPath);
 if (redirectPath) {
+  console.log('Redirecting to:', redirectPath);
   sessionStorage.removeItem('redirectPath');
   window.history.replaceState(null, '', redirectPath);
 }

@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>My Portfolio</title>
+    <script>
+      // Handle SPA routing for GitHub Pages
+      // Store the current path and redirect to index.html
+      const path = window.location.pathname;
+      console.log('404 redirect for path:', path);
+      sessionStorage.setItem('redirectPath', path);
+      window.location.replace('/');
+    </script>
+  </head>
+  <body>
+    <div style="display: flex; justify-content: center; align-items: center; height: 100vh; font-family: Arial, sans-serif;">
+      <div>Loading...</div>
+    </div>
+  </body>
+</html>
