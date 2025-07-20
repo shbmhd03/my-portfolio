@@ -4,6 +4,7 @@ import './App.css';
 import AdminPanel from './AdminPanel';
 import Portfolio from './Portfolio';
 import MaintenancePage from './MaintenancePage';
+import { maintenanceAPI } from './api';
 
 interface AboutContent {
   title: string;
@@ -89,16 +90,6 @@ const App = () => {
   };
 
   const getInitialMaintenanceMode = (): MaintenanceMode => {
-    try {
-      const saved = localStorage.getItem('portfolioMaintenanceMode');
-      if (saved) {
-        console.log('Loading saved maintenance mode:', saved);
-        return JSON.parse(saved);
-      }
-    } catch (error) {
-      console.error('Error loading saved maintenance mode:', error);
-    }
-    
     return {
       isActive: false,
       startDate: '',
@@ -128,6 +119,38 @@ const App = () => {
     localStorage.setItem('portfolioHomeContent', JSON.stringify(homePageContent));
   }, [homePageContent]);
 
+  // Load maintenance status from server on app start
+  useEffect(() => {
+    const loadMaintenanceStatus = async () => {
+      try {
+        const serverStatus = await maintenanceAPI.getStatus();
+        if (serverStatus.isGloballyActive !== undefined) {
+          setMaintenanceMode(prev => ({
+            ...prev,
+            isActive: serverStatus.isGloballyActive,
+            message: serverStatus.message || prev.message,
+            estimatedDuration: serverStatus.estimatedTime || prev.estimatedDuration
+          }));
+        }
+      } catch (error) {
+        console.error('Failed to load maintenance status from server:', error);
+        // Fallback to localStorage
+        try {
+          const saved = localStorage.getItem('portfolioMaintenanceMode');
+          if (saved) {
+            console.log('Loading saved maintenance mode from localStorage:', saved);
+            setMaintenanceMode(JSON.parse(saved));
+          }
+        } catch (localError) {
+          console.error('Error loading saved maintenance mode:', localError);
+        }
+      }
+    };
+
+    loadMaintenanceStatus();
+  }, []);
+
+  // Save maintenance mode to localStorage as backup
   useEffect(() => {
     console.log('Saving maintenance mode to localStorage:', maintenanceMode);
     localStorage.setItem('portfolioMaintenanceMode', JSON.stringify(maintenanceMode));

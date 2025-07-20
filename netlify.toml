@@ -1,0 +1,48 @@
+[build]
+  # Build command
+  command = "npm run build"
+  # Directory to deploy
+  publish = "dist"
+
+[build.environment]
+  # Node.js version
+  NODE_VERSION = "18"
+
+# Redirect rules for SPA (Single Page Application)
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+  conditions = {Role = ["admin"], Country = ["US"]}
+
+# Admin panel redirect
+[[redirects]]
+  from = "/web-admin"
+  to = "/index.html"
+  status = 200
+
+# API proxy for functions
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
+
+# Cache static assets
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Security headers
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-XSS-Protection = "1; mode=block"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+# Environment variables (set these in Netlify dashboard)
+# MAINTENANCE_ACTIVE = false
+# MAINTENANCE_MESSAGE = "We're updating our portfolio"
+# MAINTENANCE_TIME = "2 hours"

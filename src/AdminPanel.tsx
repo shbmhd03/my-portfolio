@@ -7,6 +7,7 @@ import {
   MdComputer, MdTerminal, MdBuild, MdMenu, MdLogout, MdVisibility,
   MdTrendingUp, MdSpeed, MdUpdate
 } from 'react-icons/md';
+import { maintenanceAPI } from './api';
 import { 
   FaAws, FaReact, FaPython, FaDocker, FaLinux, FaGithub,
   FaNetworkWired, FaShieldAlt
@@ -467,15 +468,35 @@ const AdminPanel = ({ aboutContent, setAboutContent, homePageContent, setHomePag
   };
 
   // Maintenance mode functions
-  const toggleMaintenanceMode = () => {
+  const toggleMaintenanceMode = async () => {
     const newMode = { ...maintenanceMode, isActive: !maintenanceMode.isActive };
     if (newMode.isActive && !newMode.startDate) {
       newMode.startDate = new Date().toISOString().slice(0, 16);
     }
-    setMaintenanceMode(newMode);
+    
+    try {
+      // Update maintenance status on server
+      const result = await maintenanceAPI.updateStatus({
+        isGloballyActive: newMode.isActive,
+        message: newMode.message,
+        estimatedTime: newMode.estimatedDuration
+      });
+      
+      if (result.success) {
+        setMaintenanceMode(newMode);
+        alert(`Maintenance mode ${newMode.isActive ? 'enabled' : 'disabled'} globally!`);
+      } else {
+        throw new Error('Failed to update maintenance status on server');
+      }
+    } catch (error) {
+      console.error('Error updating maintenance mode:', error);
+      // Fallback to local update
+      setMaintenanceMode(newMode);
+      alert(`Maintenance mode ${newMode.isActive ? 'enabled' : 'disabled'} locally (server update failed)`);
+    }
   };
 
-  const saveMaintenanceSettings = () => {
+  const saveMaintenanceSettings = async () => {
     // Validate dates
     if (maintenanceMode.startDate && maintenanceMode.endDate) {
       if (new Date(maintenanceMode.startDate) >= new Date(maintenanceMode.endDate)) {
@@ -484,8 +505,23 @@ const AdminPanel = ({ aboutContent, setAboutContent, homePageContent, setHomePag
       }
     }
     
-    // Save maintenance settings
-    alert('Maintenance settings saved successfully!');
+    try {
+      // Save maintenance settings to server
+      const result = await maintenanceAPI.updateStatus({
+        isGloballyActive: maintenanceMode.isActive,
+        message: maintenanceMode.message,
+        estimatedTime: maintenanceMode.estimatedDuration
+      });
+      
+      if (result.success) {
+        alert('Maintenance settings saved successfully and applied globally!');
+      } else {
+        throw new Error('Failed to save maintenance settings on server');
+      }
+    } catch (error) {
+      console.error('Error saving maintenance settings:', error);
+      alert('Maintenance settings saved locally (server update failed)');
+    }
   };
 
   const scheduleMaintenance = (startDate: string, endDate: string) => {
