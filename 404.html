@@ -6,8 +6,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>My Portfolio</title>
     <script>
-      // Redirect all routes to index.html for SPA routing
-      window.location.replace('/');
+      // Handle SPA routing for GitHub Pages
+      const path = window.location.pathname;
+      if (path.includes('/web-admin')) {
+        // Redirect to main page with admin hash
+        window.location.replace('/#admin');
+      } else {
+        // Redirect to main page
+        window.location.replace('/');
+      }
     </script>
   </head>
   <body>
