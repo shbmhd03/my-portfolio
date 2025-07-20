@@ -6,14 +6,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>My Portfolio</title>
     <script>
-      // Handle SPA routing for GitHub Pages
+      // Single Page Application routing support for GitHub Pages
       const path = window.location.pathname;
-      if (path.includes('/web-admin')) {
-        // Redirect to main page with admin hash
-        window.location.replace('/#admin');
-      } else {
-        // Redirect to main page
-        window.location.replace('/');
+      const basePath = '/my-portfolio';
+      
+      if (path.startsWith(basePath + '/web-admin')) {
+        // Store the intended path and redirect to index.html
+        sessionStorage.setItem('redirectPath', '/web-admin');
+        window.location.replace(basePath + '/');
+      } else if (path !== basePath + '/' && path !== basePath) {
+        // For other routes, redirect to home
+        window.location.replace(basePath + '/');
       }
     </script>
   </head>
