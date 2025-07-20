@@ -55,7 +55,12 @@ test-files/
 portfolio-fixed.html
 current-website-content.html
 enhanced-*.html
+
+# PowerShell files (excluding deployment scripts)
 *.ps1
+!deploy-*.ps1
+!github-upload.ps1
+!*-deploy.ps1
 
 # TypeScript
 *.tsbuildinfo
