@@ -129,13 +129,18 @@ const AIBot = () => {
     <>
       {/* Chat Trigger Button - Hide when chat is open */}
       {!isOpen && (
-        <button
-          onClick={() => setIsOpen(true)}
-          className="chat-trigger chat-trigger-enhanced"
-          aria-label="Open AI Assistant"
-        >
-          <RobotIcon size={28} />
-        </button>
+        <div className="chat-trigger-wrapper">
+          <button
+            onClick={() => setIsOpen(true)}
+            className="chat-trigger chat-trigger-enhanced"
+            aria-label="Open AI Assistant"
+          >
+            <RobotIcon size={28} />
+          </button>
+          <div className="chat-tooltip">
+            Ask me anything!
+          </div>
+        </div>
       )}
 
       {/* Chat Interface */}

@@ -86,7 +86,14 @@ interface User {
   lastLogin?: string;
 }
 
-const AdminPanel = () => {
+interface AdminPanelProps {
+  aboutContent: AboutContent;
+  setAboutContent: (content: AboutContent) => void;
+  homePageContent: HomePageContent;
+  setHomePageContent: (content: HomePageContent) => void;
+}
+
+const AdminPanel = ({ aboutContent, setAboutContent, homePageContent, setHomePageContent }: AdminPanelProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -105,25 +112,6 @@ const AdminPanel = () => {
     website: 'https://mohamedsuhaib.live',
     linkedin: 'https://www.linkedin.com/in/shbmhmd03',
     github: 'https://github.com/shbmhmd'
-  });
-  const [homePageContent, setHomePageContent] = useState<HomePageContent>({
-    name: 'Mohamed Suhaib',
-    title: 'Hi, I\'m Mohamed Suhaib',
-    subtitle: 'Network Engineering Student & Tech Enthusiast',
-    description: 'Passionate about cloud computing, cybersecurity, and building innovative solutions that make a difference in the digital world.',
-    primaryButtonText: 'Get In Touch',
-    secondaryButtonText: 'Download CV',
-    cvFileName: 'resume.pdf'
-  });
-  const [aboutContent, setAboutContent] = useState<AboutContent>({
-    title: 'About Me',
-    paragraph1: 'I\'m a passionate Network Engineering student at ESOFT Metro Campus, pursuing an HND in Computing. With a deep interest in cloud computing and cybersecurity, I love building innovative solutions and solving complex technical problems.',
-    paragraph2: 'My journey in technology started with curiosity about how networks connect the world, and it has evolved into a mission to create secure, scalable, and efficient systems.',
-    stats: {
-      experience: { value: '2+', label: 'Years of Experience' },
-      projects: { value: '10+', label: 'Projects Completed' },
-      technologies: { value: '5+', label: 'Technologies Mastered' }
-    }
   });
 
   // Editing states

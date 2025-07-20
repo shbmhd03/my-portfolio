@@ -49,6 +49,14 @@ coverage/
 ehthumbs.db
 Thumbs.db
 
+# Test files and temporary files
+test-files/
+*test*.html
+portfolio-fixed.html
+current-website-content.html
+enhanced-*.html
+*.ps1
+
 # TypeScript
 *.tsbuildinfo
 

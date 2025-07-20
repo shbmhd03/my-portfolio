@@ -8,10 +8,54 @@ import BlogSection from './BlogSection';
 import AdminPanel from './AdminPanel';
 import { CodeIcon, RocketIcon, NetworkIcon, CloudIcon, SecurityIcon, EmailIcon, WebsiteIcon, LinkedInIcon, GitHubIcon, SunIcon, MoonIcon } from './Icons';
 
+// Content interfaces
+interface AboutContent {
+  title: string;
+  paragraph1: string;
+  paragraph2: string;
+  stats: {
+    experience: { value: string; label: string };
+    projects: { value: string; label: string };
+    technologies: { value: string; label: string };
+  };
+}
+
+interface HomePageContent {
+  name: string;
+  title: string;
+  subtitle: string;
+  description: string;
+  primaryButtonText: string;
+  secondaryButtonText: string;
+  cvFileName: string;
+}
+
 const App = () => {
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
   const [activeSection, setActiveSection] = useState('home');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  
+  // Content state for dynamic content management
+  const [aboutContent, setAboutContent] = useState<AboutContent>({
+    title: 'About Me',
+    paragraph1: 'I\'m a passionate Network Engineering student at ESOFT Metro Campus, pursuing an HND in Computing. With a deep interest in cloud computing and cybersecurity, I love building innovative solutions and solving complex technical problems.',
+    paragraph2: 'My journey in technology started with curiosity about how networks connect the world, and it has evolved into a mission to create secure, scalable, and efficient systems.',
+    stats: {
+      experience: { value: '2+', label: 'Years of Experience' },
+      projects: { value: '10+', label: 'Projects Completed' },
+      technologies: { value: '5+', label: 'Technologies Mastered' }
+    }
+  });
+
+  const [homePageContent, setHomePageContent] = useState<HomePageContent>({
+    name: 'Mohamed Suhaib',
+    title: 'Hi, I\'m Mohamed Suhaib',
+    subtitle: 'Network Engineering Student & Tech Enthusiast',
+    description: 'Passionate about cloud computing, cybersecurity, and building innovative solutions that make a difference in the digital world.',
+    primaryButtonText: 'Get In Touch',
+    secondaryButtonText: 'Download CV',
+    cvFileName: 'resume.pdf'
+  });
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -187,7 +231,7 @@ const App = () => {
         </div>
         
         {/* Desktop Navigation */}
-        <ul className={`nav-links ${isMobileMenuOpen ? 'nav-links-mobile' : ''}`}>
+        <ul className="nav-links">
           <li><button onClick={() => scrollToSection('home')} className={activeSection === 'home' ? 'active' : ''}>Home</button></li>
           <li><button onClick={() => scrollToSection('about')} className={activeSection === 'about' ? 'active' : ''}>About</button></li>
           <li><button onClick={() => scrollToSection('skills')} className={activeSection === 'skills' ? 'active' : ''}>Skills</button></li>
@@ -196,8 +240,20 @@ const App = () => {
           <li><button onClick={() => scrollToSection('contact')} className={activeSection === 'contact' ? 'active' : ''}>Contact</button></li>
         </ul>
 
-        {/* Mobile Menu Overlay */}
-        {isMobileMenuOpen && <div className="mobile-menu-overlay" onClick={() => setIsMobileMenuOpen(false)}></div>}
+        {/* Mobile Navigation */}
+        <>
+          {isMobileMenuOpen && (
+            <div className="mobile-menu-overlay" onClick={() => setIsMobileMenuOpen(false)}></div>
+          )}
+          <ul className={`nav-links-mobile ${isMobileMenuOpen ? 'open' : ''}`}>
+            <li><button onClick={() => scrollToSection('home')} className={activeSection === 'home' ? 'active' : ''}>Home</button></li>
+            <li><button onClick={() => scrollToSection('about')} className={activeSection === 'about' ? 'active' : ''}>About</button></li>
+            <li><button onClick={() => scrollToSection('skills')} className={activeSection === 'skills' ? 'active' : ''}>Skills</button></li>
+            <li><button onClick={() => scrollToSection('projects')} className={activeSection === 'projects' ? 'active' : ''}>Projects</button></li>
+            <li><button onClick={() => scrollToSection('blog')} className={activeSection === 'blog' ? 'active' : ''}>Blog</button></li>
+            <li><button onClick={() => scrollToSection('contact')} className={activeSection === 'contact' ? 'active' : ''}>Contact</button></li>
+          </ul>
+        </>
 
         <div className="nav-actions">
           <button onClick={toggleTheme} className="theme-toggle">
@@ -224,16 +280,16 @@ const App = () => {
             <h1 className="hero-title">
               Hi, I'm <span className="gradient-text">Mohamed Suhaib</span>
             </h1>
-            <p className="hero-subtitle typewriter">Network Engineering Student & Tech Enthusiast</p>
+            <p className="hero-subtitle typewriter">{homePageContent.subtitle}</p>
             <p className="hero-description">
-              Passionate about cloud computing, cybersecurity, and building innovative solutions that make a difference in the digital world.
+              {homePageContent.description}
             </p>
             <div className="hero-buttons">
               <button onClick={() => scrollToSection('contact')} className="btn-primary btn-modern">
-                Get In Touch
+                {homePageContent.primaryButtonText}
               </button>
-              <a href="/resume.pdf" download className="btn-secondary btn-modern">
-                Download CV
+              <a href={`/${homePageContent.cvFileName}`} download className="btn-secondary btn-modern">
+                {homePageContent.secondaryButtonText}
               </a>
             </div>
           </div>
@@ -250,31 +306,28 @@ const App = () => {
       {/* About Section */}
       <section id="about" className="about section-enhanced">
         <div className="container">
-          <h2 className="section-title section-title-enhanced scroll-reveal">About Me</h2>
+          <h2 className="section-title section-title-enhanced scroll-reveal">{aboutContent.title}</h2>
           <div className="about-content about-content-enhanced">
             <div className="about-text about-text-enhanced scroll-reveal-left">
               <p>
-                I'm a passionate Network Engineering student at ESOFT Metro Campus, pursuing an HND in Computing.
-                With a deep interest in cloud computing and cybersecurity, I love building innovative solutions
-                and solving complex technical problems.
+                {aboutContent.paragraph1}
               </p>
               <p>
-                My journey in technology started with curiosity about how networks connect the world, and it has
-                evolved into a mission to create secure, scalable, and efficient systems.
+                {aboutContent.paragraph2}
               </p>
             </div>
             <div className="about-stats scroll-reveal-right">
               <div className="stat-card stat-card-enhanced">
-                <h3>2+</h3>
-                <p>Years of Experience</p>
+                <h3>{aboutContent.stats.experience.value}</h3>
+                <p>{aboutContent.stats.experience.label}</p>
               </div>
               <div className="stat-card stat-card-enhanced">
-                <h3>10+</h3>
-                <p>Projects Completed</p>
+                <h3>{aboutContent.stats.projects.value}</h3>
+                <p>{aboutContent.stats.projects.label}</p>
               </div>
               <div className="stat-card stat-card-enhanced">
-                <h3>5+</h3>
-                <p>Technologies Mastered</p>
+                <h3>{aboutContent.stats.technologies.value}</h3>
+                <p>{aboutContent.stats.technologies.label}</p>
               </div>
             </div>
           </div>
@@ -477,7 +530,12 @@ const App = () => {
       <AIBot />
       
       {/* Admin Panel */}
-      <AdminPanel />
+      <AdminPanel 
+        aboutContent={aboutContent}
+        setAboutContent={setAboutContent}
+        homePageContent={homePageContent}
+        setHomePageContent={setHomePageContent}
+      />
     </div>
   );
 };
