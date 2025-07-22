@@ -1,17 +1,25 @@
 [build]
   # Build command
   command = "npm run build"
-  # Directory to deploy
+  # Directory to deploy (built React app)
   publish = "dist"
+  # Functions directory
+  functions = "netlify/functions"
 
 [build.environment]
   # Node.js version
   NODE_VERSION = "18"
 
-# Redirect rules for SPA (Single Page Application)
+# API proxy for functions (higher priority)
 [[redirects]]
-  from = "/*"
-  to = "/index.html"
+  from = "/api/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
+
+# Functions direct access (higher priority)
+[[redirects]]
+  from = "/.netlify/functions/*"
+  to = "/.netlify/functions/:splat"
   status = 200
 
 # Enhanced admin panel redirect
@@ -26,10 +34,10 @@
   to = "/index.html"
   status = 200
 
-# API proxy for functions
+# Redirect rules for SPA (Single Page Application) - lowest priority
 [[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/:splat"
+  from = "/*"
+  to = "/index.html"
   status = 200
 
 # Cache static assets
