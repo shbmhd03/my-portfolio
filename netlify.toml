@@ -13,9 +13,14 @@
   from = "/*"
   to = "/index.html"
   status = 200
-  conditions = {Role = ["admin"], Country = ["US"]}
 
-# Admin panel redirect
+# Enhanced admin panel redirect
+[[redirects]]
+  from = "/admin"
+  to = "/index.html"
+  status = 200
+
+# Legacy admin panel redirect
 [[redirects]]
   from = "/web-admin"
   to = "/index.html"
