@@ -1,7 +1,7 @@
 [build]
   # Build command
   command = "npm run build"
-  # Directory to deploy (built React app)
+  # Directory to deploy
   publish = "dist"
   # Functions directory
   functions = "netlify/functions"
@@ -9,35 +9,33 @@
 [build.environment]
   # Node.js version
   NODE_VERSION = "18"
+  # Enable CI optimizations
+  CI = "true"
+  # Disable telemetry for faster builds
+  NETLIFY_NEXT_PLUGIN_SKIP = "true"
 
-# API proxy for functions (higher priority)
+# Redirect rules for SPA (Single Page Application)
 [[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/:splat"
-  status = 200
-
-# Functions direct access (higher priority)
-[[redirects]]
-  from = "/.netlify/functions/*"
-  to = "/.netlify/functions/:splat"
-  status = 200
-
-# Enhanced admin panel redirect
-[[redirects]]
-  from = "/admin"
+  from = "/*"
   to = "/index.html"
   status = 200
 
-# Legacy admin panel redirect
+# Admin panel redirect
 [[redirects]]
   from = "/web-admin"
   to = "/index.html"
   status = 200
 
-# Redirect rules for SPA (Single Page Application) - lowest priority
+# Admin panel direct access
 [[redirects]]
-  from = "/*"
+  from = "/admin"
   to = "/index.html"
+  status = 200
+
+# API proxy for functions
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/:splat"
   status = 200
 
 # Cache static assets
@@ -45,6 +43,12 @@
   for = "/assets/*"
   [headers.values]
     Cache-Control = "public, max-age=31536000, immutable"
+
+# Cache images
+[[headers]]
+  for = "/images/*"
+  [headers.values]
+    Cache-Control = "public, max-age=604800"
 
 # Security headers
 [[headers]]
@@ -54,8 +58,12 @@
     X-XSS-Protection = "1; mode=block"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:;"
 
-# Environment variables (set these in Netlify dashboard)
-# MAINTENANCE_ACTIVE = false
-# MAINTENANCE_MESSAGE = "We're updating our portfolio"
-# MAINTENANCE_TIME = "2 hours"
+# Function-specific headers
+[[headers]]
+  for = "/.netlify/functions/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Headers = "Content-Type, Authorization"
+    Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"

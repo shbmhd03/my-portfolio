@@ -1,10 +1,22 @@
-// Netlify Function for maintenance mode management
-export const handler = async (event, context) => {
+// Netlify Function for Maintenance Mode
+// Handles maintenance mode status and configuration
+
+let maintenanceConfig = {
+  enabled: false,
+  message: "We're currently performing scheduled maintenance. Please check back soon!",
+  estimatedCompletion: null,
+  allowedPaths: ['/admin', '/api'],
+  adminPassword: 'admin123', // In production, use environment variables
+  lastUpdated: new Date().toISOString()
+};
+
+exports.handler = async (event, context) => {
   // Enable CORS
   const headers = {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS',
+    'Content-Type': 'application/json'
   };
 
   // Handle preflight requests
@@ -12,71 +24,99 @@ export const handler = async (event, context) => {
     return {
       statusCode: 200,
       headers,
-      body: '',
+      body: ''
     };
   }
 
-  // Global maintenance configuration (in production, this would be stored in a database)
-  // For now, we'll use environment variables or a simple JSON store
-  let globalMaintenanceConfig = {
-    isGloballyActive: process.env.MAINTENANCE_ACTIVE === 'true' || false,
-    message: process.env.MAINTENANCE_MESSAGE || "We're currently updating our portfolio to serve you better!",
-    estimatedTime: process.env.MAINTENANCE_TIME || "We'll be back online shortly",
-    lastUpdated: new Date().toISOString()
-  };
-
   try {
-    if (event.httpMethod === 'GET') {
-      // Get maintenance status
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify(globalMaintenanceConfig),
-      };
+    const { httpMethod, body, headers: requestHeaders } = event;
+
+    switch (httpMethod) {
+      case 'GET':
+        // Return maintenance status
+        return {
+          statusCode: 200,
+          headers,
+          body: JSON.stringify({
+            success: true,
+            data: {
+              enabled: maintenanceConfig.enabled,
+              message: maintenanceConfig.message,
+              estimatedCompletion: maintenanceConfig.estimatedCompletion,
+              lastUpdated: maintenanceConfig.lastUpdated
+            }
+          })
+        };
+
+      case 'POST':
+      case 'PUT':
+        // Update maintenance configuration (admin only)
+        const updateData = JSON.parse(body);
+        const authorization = requestHeaders.authorization;
+        
+        // Simple authentication check (in production, use proper JWT/session management)
+        if (!authorization || !authorization.includes(maintenanceConfig.adminPassword)) {
+          return {
+            statusCode: 401,
+            headers,
+            body: JSON.stringify({
+              success: false,
+              error: 'Unauthorized'
+            })
+          };
+        }
+
+        // Update maintenance configuration
+        if (updateData.hasOwnProperty('enabled')) {
+          maintenanceConfig.enabled = updateData.enabled;
+        }
+        if (updateData.message) {
+          maintenanceConfig.message = updateData.message;
+        }
+        if (updateData.estimatedCompletion) {
+          maintenanceConfig.estimatedCompletion = updateData.estimatedCompletion;
+        }
+        if (updateData.allowedPaths) {
+          maintenanceConfig.allowedPaths = updateData.allowedPaths;
+        }
+
+        maintenanceConfig.lastUpdated = new Date().toISOString();
+
+        return {
+          statusCode: 200,
+          headers,
+          body: JSON.stringify({
+            success: true,
+            data: {
+              enabled: maintenanceConfig.enabled,
+              message: maintenanceConfig.message,
+              estimatedCompletion: maintenanceConfig.estimatedCompletion,
+              lastUpdated: maintenanceConfig.lastUpdated
+            },
+            message: 'Maintenance configuration updated successfully'
+          })
+        };
+
+      default:
+        return {
+          statusCode: 405,
+          headers,
+          body: JSON.stringify({
+            success: false,
+            error: 'Method not allowed'
+          })
+        };
     }
-
-    if (event.httpMethod === 'POST') {
-      // Update maintenance status
-      const body = JSON.parse(event.body || '{}');
-      const { isGloballyActive, message, estimatedTime } = body;
-
-      // In a real application, you would save this to a database
-      // For now, we'll return the updated config
-      globalMaintenanceConfig = {
-        isGloballyActive: isGloballyActive !== undefined ? isGloballyActive : globalMaintenanceConfig.isGloballyActive,
-        message: message || globalMaintenanceConfig.message,
-        estimatedTime: estimatedTime || globalMaintenanceConfig.estimatedTime,
-        lastUpdated: new Date().toISOString()
-      };
-
-      console.log('Maintenance mode updated:', globalMaintenanceConfig);
-
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({ 
-          success: true, 
-          config: globalMaintenanceConfig,
-          note: 'In production, integrate with a database for persistent storage'
-        }),
-      };
-    }
-
-    return {
-      statusCode: 405,
-      headers,
-      body: JSON.stringify({ error: 'Method not allowed' }),
-    };
 
   } catch (error) {
-    console.error('Error in maintenance function:', error);
+    console.error('Maintenance function error:', error);
     return {
       statusCode: 500,
       headers,
-      body: JSON.stringify({ 
-        error: 'Internal server error',
-        message: error.message 
-      }),
+      body: JSON.stringify({
+        success: false,
+        error: 'Internal server error'
+      })
     };
   }
 };
