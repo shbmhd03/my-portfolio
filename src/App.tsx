@@ -5,7 +5,6 @@ import AIBot from './AIBot';
 import ContactForm from './ContactForm';
 import SkillsVisualization from './SkillsVisualization';
 import BlogSection from './BlogSection';
-import AdminPanel from './AdminPanel';
 import { CodeIcon, RocketIcon, NetworkIcon, CloudIcon, SecurityIcon, EmailIcon, WebsiteIcon, LinkedInIcon, GitHubIcon, SunIcon, MoonIcon } from './Icons';
 
 // Content interfaces
@@ -30,13 +29,19 @@ interface HomePageContent {
   cvFileName: string;
 }
 
-const App = () => {
+interface AppProps {
+  showAdmin?: boolean;
+  aboutContent?: AboutContent;
+  homePageContent?: HomePageContent;
+}
+
+const App = ({ showAdmin = false, aboutContent: propAboutContent, homePageContent: propHomePageContent }: AppProps) => {
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
   const [activeSection, setActiveSection] = useState('home');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  
-  // Content state for dynamic content management
-  const [aboutContent, setAboutContent] = useState<AboutContent>({
+
+  // Use provided content or fall back to defaults
+  const aboutContent = propAboutContent || {
     title: 'About Me',
     paragraph1: 'I\'m a passionate Network Engineering student at ESOFT Metro Campus, pursuing an HND in Computing. With a deep interest in cloud computing and cybersecurity, I love building innovative solutions and solving complex technical problems.',
     paragraph2: 'My journey in technology started with curiosity about how networks connect the world, and it has evolved into a mission to create secure, scalable, and efficient systems.',
@@ -45,9 +50,9 @@ const App = () => {
       projects: { value: '10+', label: 'Projects Completed' },
       technologies: { value: '5+', label: 'Technologies Mastered' }
     }
-  });
+  };
 
-  const [homePageContent, setHomePageContent] = useState<HomePageContent>({
+  const homePageContent = propHomePageContent || {
     name: 'Mohamed Suhaib',
     title: 'Hi, I\'m Mohamed Suhaib',
     subtitle: 'Network Engineering Student & Tech Enthusiast',
@@ -55,7 +60,7 @@ const App = () => {
     primaryButtonText: 'Get In Touch',
     secondaryButtonText: 'Download CV',
     cvFileName: 'resume.pdf'
-  });
+  };
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -528,14 +533,6 @@ const App = () => {
 
       {/* Enhanced AI Bot */}
       <AIBot />
-      
-      {/* Admin Panel */}
-      <AdminPanel 
-        aboutContent={aboutContent}
-        setAboutContent={setAboutContent}
-        homePageContent={homePageContent}
-        setHomePageContent={setHomePageContent}
-      />
     </div>
   );
 };

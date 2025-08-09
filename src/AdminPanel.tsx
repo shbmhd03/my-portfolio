@@ -91,15 +91,32 @@ interface AdminPanelProps {
   setAboutContent: (content: AboutContent) => void;
   homePageContent: HomePageContent;
   setHomePageContent: (content: HomePageContent) => void;
+  currentUser: User;
+  onLogout: () => void;
 }
 
-const AdminPanel = ({ aboutContent, setAboutContent, homePageContent, setHomePageContent }: AdminPanelProps) => {
-  const [isOpen, setIsOpen] = useState(false);
+const AdminPanel = ({ aboutContent, setAboutContent, homePageContent, setHomePageContent, currentUser, onLogout }: AdminPanelProps) => {
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [password, setPassword] = useState('');
-  const [username, setUsername] = useState('');
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  
+  // Maintenance mode state
+  const [maintenanceMode, setMaintenanceMode] = useState({
+    enabled: false,
+    message: "We're currently performing scheduled maintenance. Please check back soon!",
+    estimatedCompletion: '',
+    allowedPaths: ['/admin', '/web-admin']
+  });
+
+  // Load maintenance configuration on mount
+  useEffect(() => {
+    const savedConfig = localStorage.getItem('maintenanceConfig');
+    if (savedConfig) {
+      try {
+        setMaintenanceMode(JSON.parse(savedConfig));
+      } catch (error) {
+        console.error('Error loading maintenance config:', error);
+      }
+    }
+  }, []);
   
   // Data states
   const [projects, setProjects] = useState<Project[]>([]);
@@ -250,30 +267,9 @@ const AdminPanel = ({ aboutContent, setAboutContent, homePageContent, setHomePag
     ]);
   }, []);
 
-  const handleLogin = () => {
-    // Find user with matching username and password
-    const user = users.find(u => u.username === username && u.password === password);
-    
-    if (user) {
-      setIsAuthenticated(true);
-      setCurrentUser(user);
-      setPassword('');
-      setUsername('');
-      // Update last login
-      setUsers(users.map(u => 
-        u.id === user.id 
-          ? { ...u, lastLogin: new Date().toISOString() }
-          : u
-      ));
-    } else {
-      alert('Invalid username or password');
-    }
-  };
-
+  // Simple logout that calls the parent logout handler
   const handleLogout = () => {
-    setIsAuthenticated(false);
-    setCurrentUser(null);
-    setIsOpen(false);
+    onLogout();
   };
 
   // Project management functions
@@ -444,7 +440,7 @@ const AdminPanel = ({ aboutContent, setAboutContent, homePageContent, setHomePag
     // Update current user's password
     const updatedUser = { ...currentUser, password: newPassword };
     setUsers(users.map(u => u.id === currentUser.id ? updatedUser : u));
-    setCurrentUser(updatedUser);
+    // Note: In a real app, you would update the user in the backend
     
     // Clear form
     setCurrentPassword('');
@@ -455,117 +451,7 @@ const AdminPanel = ({ aboutContent, setAboutContent, homePageContent, setHomePag
     alert('Password changed successfully!');
   };
 
-  if (!isAuthenticated) {
-    return (
-      <>
-        <button 
-          onClick={() => setIsOpen(true)}
-          className="admin-trigger"
-          style={{
-            position: 'fixed',
-            bottom: '2rem',
-            left: '2rem',
-            width: '3rem',
-            height: '3rem',
-            borderRadius: '50%',
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            border: 'none',
-            color: 'white',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '1.2rem',
-            zIndex: 1000,
-            boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)'
-          }}
-        >
-          <MdSettings size={20} />
-        </button>
-
-        {isOpen && (
-          <div className="admin-login-overlay" style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: 'rgba(0, 0, 0, 0.8)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 10000
-          }}>
-            <div className="admin-login-modal" style={{
-              background: 'var(--bg-primary)',
-              borderRadius: '1rem',
-              padding: '2rem',
-              boxShadow: '0 20px 40px rgba(0, 0, 0, 0.3)',
-              border: '1px solid var(--border)',
-              minWidth: '300px'
-            }}>
-              <h3 style={{ marginBottom: '1rem', color: 'var(--text-primary)' }}>Admin Login</h3>
-              <input
-                type="text"
-                placeholder="Username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '0.75rem',
-                  borderRadius: '0.5rem',
-                  border: '1px solid var(--border)',
-                  background: 'var(--bg-secondary)',
-                  color: 'var(--text-primary)',
-                  marginBottom: '1rem'
-                }}
-              />
-              <input
-                type="password"
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
-                style={{
-                  width: '100%',
-                  padding: '0.75rem',
-                  borderRadius: '0.5rem',
-                  border: '1px solid var(--border)',
-                  background: 'var(--bg-secondary)',
-                  color: 'var(--text-primary)',
-                  marginBottom: '1rem'
-                }}
-              />
-              <div style={{ display: 'flex', gap: '1rem' }}>
-                <button onClick={handleLogin} style={{
-                  flex: 1,
-                  padding: '0.75rem',
-                  borderRadius: '0.5rem',
-                  border: 'none',
-                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                  color: 'white',
-                  cursor: 'pointer'
-                }}>
-                  Login
-                </button>
-                <button onClick={() => setIsOpen(false)} style={{
-                  flex: 1,
-                  padding: '0.75rem',
-                  borderRadius: '0.5rem',
-                  border: '1px solid var(--border)',
-                  background: 'transparent',
-                  color: 'var(--text-primary)',
-                  cursor: 'pointer'
-                }}>
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-      </>
-    );
-  }
+  // Admin panel is always rendered since authentication is handled externally
 
   return (
     <div className="admin-panel" style={{
@@ -655,6 +541,7 @@ const AdminPanel = ({ aboutContent, setAboutContent, homePageContent, setHomePag
             { id: 'skills', label: 'Skills', icon: <MdCode size={18} /> },
             { id: 'contact', label: 'Contact Info', icon: <MdEmail size={18} /> },
             ...(currentUser?.role === 'admin' ? [
+              { id: 'maintenance', label: 'Maintenance Mode', icon: <MdBuild size={18} /> },
               { id: 'users', label: 'User Management', icon: <MdPeople size={18} /> },
               { id: 'settings', label: 'Settings', icon: <MdSettings size={18} /> }
             ] : [])
@@ -1964,6 +1851,207 @@ const AdminPanel = ({ aboutContent, setAboutContent, homePageContent, setHomePag
                   )}
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'maintenance' && (
+          <div>
+            <h2 style={{ color: 'var(--text-primary)', marginBottom: '2rem' }}>Maintenance Mode</h2>
+            
+            <div style={{
+              background: 'var(--bg-secondary)',
+              padding: '2rem',
+              borderRadius: '0.75rem',
+              border: '1px solid var(--border)',
+              marginBottom: '2rem'
+            }}>
+              <h3 style={{ color: 'var(--text-primary)', marginBottom: '1.5rem' }}>
+                <MdBuild style={{ marginRight: '0.5rem' }} />
+                Maintenance Configuration
+              </h3>
+              
+              <div style={{ marginBottom: '1.5rem' }}>
+                <label style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  color: 'var(--text-primary)',
+                  marginBottom: '1rem',
+                  cursor: 'pointer'
+                }}>
+                  <input
+                    type="checkbox"
+                    checked={maintenanceMode.enabled}
+                    onChange={(e) => setMaintenanceMode({
+                      ...maintenanceMode,
+                      enabled: e.target.checked
+                    })}
+                    style={{
+                      width: '18px',
+                      height: '18px',
+                      accentColor: 'var(--accent)'
+                    }}
+                  />
+                  <span style={{ fontWeight: '500' }}>Enable Maintenance Mode</span>
+                </label>
+                
+                {maintenanceMode.enabled && (
+                  <div style={{
+                    padding: '1rem',
+                    background: 'rgba(255, 193, 7, 0.1)',
+                    border: '1px solid rgba(255, 193, 7, 0.3)',
+                    borderRadius: '0.5rem',
+                    color: '#ffc107'
+                  }}>
+                    ⚠️ Warning: Enabling maintenance mode will make your site inaccessible to visitors
+                  </div>
+                )}
+              </div>
+
+              <div style={{ marginBottom: '1.5rem' }}>
+                <label style={{
+                  display: 'block',
+                  color: 'var(--text-primary)',
+                  marginBottom: '0.5rem',
+                  fontWeight: '500'
+                }}>
+                  Maintenance Message
+                </label>
+                <textarea
+                  value={maintenanceMode.message}
+                  onChange={(e) => setMaintenanceMode({
+                    ...maintenanceMode,
+                    message: e.target.value
+                  })}
+                  rows={3}
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    background: 'var(--bg-primary)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '0.5rem',
+                    color: 'var(--text-primary)',
+                    fontFamily: 'inherit',
+                    resize: 'vertical'
+                  }}
+                  placeholder="Enter maintenance message for visitors..."
+                />
+              </div>
+
+              <div style={{ marginBottom: '1.5rem' }}>
+                <label style={{
+                  display: 'block',
+                  color: 'var(--text-primary)',
+                  marginBottom: '0.5rem',
+                  fontWeight: '500'
+                }}>
+                  Estimated Completion Time
+                </label>
+                <input
+                  type="datetime-local"
+                  value={maintenanceMode.estimatedCompletion}
+                  onChange={(e) => setMaintenanceMode({
+                    ...maintenanceMode,
+                    estimatedCompletion: e.target.value
+                  })}
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    background: 'var(--bg-primary)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '0.5rem',
+                    color: 'var(--text-primary)',
+                    fontFamily: 'inherit'
+                  }}
+                />
+              </div>
+
+              <div style={{ marginBottom: '2rem' }}>
+                <label style={{
+                  display: 'block',
+                  color: 'var(--text-primary)',
+                  marginBottom: '0.5rem',
+                  fontWeight: '500'
+                }}>
+                  Allowed Paths (one per line)
+                </label>
+                <textarea
+                  value={maintenanceMode.allowedPaths.join('\n')}
+                  onChange={(e) => setMaintenanceMode({
+                    ...maintenanceMode,
+                    allowedPaths: e.target.value.split('\n').filter(path => path.trim())
+                  })}
+                  rows={4}
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    background: 'var(--bg-primary)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '0.5rem',
+                    color: 'var(--text-primary)',
+                    fontFamily: 'monospace',
+                    fontSize: '0.9rem',
+                    resize: 'vertical'
+                  }}
+                  placeholder="/admin&#10;/web-admin&#10;/api"
+                />
+                <small style={{ color: 'var(--text-secondary)', display: 'block', marginTop: '0.5rem' }}>
+                  Paths that will remain accessible during maintenance
+                </small>
+              </div>
+
+              <button
+                onClick={() => {
+                  // Save maintenance configuration
+                  localStorage.setItem('maintenanceConfig', JSON.stringify(maintenanceMode));
+                  alert('Maintenance settings saved successfully!');
+                }}
+                style={{
+                  background: 'var(--accent)',
+                  color: 'white',
+                  border: 'none',
+                  padding: '0.75rem 1.5rem',
+                  borderRadius: '0.5rem',
+                  cursor: 'pointer',
+                  fontWeight: '500',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem'
+                }}
+              >
+                <MdSave />
+                Save Maintenance Settings
+              </button>
+            </div>
+
+            {/* Maintenance Status Display */}
+            <div style={{
+              background: maintenanceMode.enabled 
+                ? 'rgba(220, 53, 69, 0.1)' 
+                : 'rgba(40, 167, 69, 0.1)',
+              border: `1px solid ${maintenanceMode.enabled 
+                ? 'rgba(220, 53, 69, 0.3)' 
+                : 'rgba(40, 167, 69, 0.3)'}`,
+              padding: '1.5rem',
+              borderRadius: '0.75rem',
+              textAlign: 'center'
+            }}>
+              <h3 style={{ 
+                color: maintenanceMode.enabled ? '#dc3545' : '#28a745',
+                marginBottom: '0.5rem' 
+              }}>
+                {maintenanceMode.enabled ? '🚨 Site in Maintenance Mode' : '✅ Site is Live'}
+              </h3>
+              <p style={{ 
+                color: 'var(--text-secondary)', 
+                margin: 0 
+              }}>
+                {maintenanceMode.enabled 
+                  ? 'Your site is currently in maintenance mode and not accessible to visitors.'
+                  : 'Your site is live and accessible to all visitors.'
+                }
+              </p>
             </div>
           </div>
         )}
