@@ -8,19 +8,11 @@
 
 [build.environment]
   # Node.js version
-  NODE_VERSION = "22"
+  NODE_VERSION = "18"
   # Enable CI optimizations
   CI = "true"
   # Disable telemetry for faster builds
   NETLIFY_NEXT_PLUGIN_SKIP = "true"
-
-# Maintenance mode: show only the maintenance page for every route.
-# Remove this rule (and the one in public/_redirects) to bring the site back.
-[[redirects]]
-  from = "/*"
-  to = "/maintenance.html"
-  status = 200
-  force = true
 
 # Redirect rules for SPA (Single Page Application)
 [[redirects]]

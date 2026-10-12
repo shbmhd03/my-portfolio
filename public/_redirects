@@ -1,3 +1,1 @@
-# Maintenance mode: every request shows the maintenance page.
-# To bring the site back, remove the line below.
-/*    /maintenance.html   200!
+/*    /index.html   200
